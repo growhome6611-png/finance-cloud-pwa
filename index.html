@@ -786,11 +786,23 @@
                 box.innerHTML = '<div class="text-center text-gray-400 py-2">Chưa có Gmail nào được ghi nhớ trên máy này.</div>';
                 return;
             }
-            box.innerHTML = list.map(email => `
-                <button onclick="loginWithKnownGoogleAccount(${JSON.stringify(email)})" class="w-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2.5 flex items-center justify-between">
+            box.innerHTML = list.map((email, idx) => `
+                <button type="button" data-account-index="${idx}" class="google-account-choice w-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-3 flex items-center justify-between cursor-pointer touch-manipulation">
                     <span class="truncate font-semibold text-gray-700"><i class="fa-solid fa-circle-user mr-2 text-emerald-600"></i>${email}</span>
                     <span class="text-emerald-700 font-bold">Chọn</span>
                 </button>`).join('');
+
+            box.querySelectorAll('.google-account-choice').forEach(btn => {
+                const activate = async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const idx = Number(btn.dataset.accountIndex);
+                    const email = list[idx];
+                    if(email) await loginWithKnownGoogleAccount(email);
+                };
+                btn.addEventListener('click', activate);
+                btn.addEventListener('touchend', activate, { passive: false });
+            });
         }
 
         function openGoogleAccountChooser() {
