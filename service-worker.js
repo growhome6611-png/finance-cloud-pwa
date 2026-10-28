@@ -1,4 +1,4 @@
-const CACHE_NAME = 'finance-account-v7-20261028';
+const CACHE_NAME = 'finance-account-v8-20261028';
 const APP_SHELL = ['./', './index.html', './config.js'];
 
 self.addEventListener('install', event => {
