@@ -311,6 +311,7 @@
                     <!-- Hiển thị cố định các nút quản lý tài khoản để dễ thao tác -->
                     <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2.5 rounded-lg font-bold"><i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng nhập tài khoản</button>
                     <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 border border-amber-300 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-user-gear mr-1"></i> Đổi sang tài khoản khác</button>
+                    <button id="setSwitchPasswordBtn" onclick="setupSwitchPassword()" class="w-full bg-violet-50 text-violet-700 border border-violet-200 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-key mr-1"></i> Thiết lập mật khẩu đổi tài khoản</button>
                     <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-rose-50 text-rose-700 border border-rose-200 py-2 rounded-lg font-bold"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
                     <p class="text-[10px] text-gray-400 text-center pt-1">Dữ liệu luôn được lưu an toàn trên thiết bị và đồng bộ tự động lên Supabase khi bạn đăng nhập.</p>
                 </div>
@@ -321,14 +322,14 @@
         <div id="googleAccountChooser" class="fixed inset-0 bg-black/50 z-[120] hidden flex items-end sm:items-center justify-center">
             <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 text-xs">
                 <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-brands fa-google mr-1"></i> Chọn tài khoản Google</h3>
+                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-brands fa-google mr-1"></i> Chọn tài khoản</h3>
                     <button onclick="closeGoogleAccountChooser()" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
                 </div>
-                <p class="text-[11px] text-gray-500 mb-3">Chọn Gmail đã từng dùng trên máy này, hoặc chọn một Gmail khác.</p>
+                <p class="text-[11px] text-gray-500 mb-3">Chọn email đã từng dùng trên máy này. Tài khoản đã thiết lập mật khẩu sẽ chuyển trực tiếp, không phụ thuộc phiên Google.</p>
                 <div id="googleSwitchMessage" class="hidden mb-3 rounded-lg border px-3 py-2 text-[11px] font-semibold"></div>
                 <div id="knownGoogleAccounts" class="space-y-2"></div>
                 <button onclick="loginWithAnotherGoogleAccount()" class="w-full mt-3 bg-blue-600 text-white py-2.5 rounded-lg font-bold shadow-sm">
-                    <i class="fa-brands fa-google mr-1"></i> Chọn Gmail khác
+                    <i class="fa-brands fa-google mr-1"></i> Thêm / đăng nhập Gmail khác bằng Google
                 </button>
             </div>
         </div>
@@ -819,7 +820,7 @@
         }
 
 
-        // V11: KHÔNG lưu access_token / refresh_token của nhiều Gmail.
+        // V12: Google chỉ dùng cho đăng nhập/thêm tài khoản lần đầu; đổi tài khoản ưu tiên Email + mật khẩu Supabase.
         // Chỉ ghi nhớ địa chỉ Gmail để hiển thị trong bộ chọn tài khoản.
 
         function renderKnownGoogleAccounts() {
@@ -833,7 +834,7 @@
             box.innerHTML = list.map((email, idx) => `
                 <button type="button" data-account-index="${idx}" class="google-account-choice w-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-3 flex items-center justify-between cursor-pointer touch-manipulation">
                     <span class="truncate font-semibold text-gray-700"><i class="fa-solid fa-circle-user mr-2 text-emerald-600"></i>${email}</span>
-                    <span class="text-emerald-700 font-bold">Chọn</span>
+                    <span class="text-emerald-700 font-bold">Đăng nhập</span>
                 </button>`).join('');
 
             box.querySelectorAll('.google-account-choice').forEach(btn => {
@@ -842,7 +843,7 @@
                     ev.stopPropagation();
                     const idx = Number(btn.dataset.accountIndex);
                     const email = list[idx];
-                    if(email) await loginWithKnownGoogleAccount(email);
+                    if(email) await loginWithKnownPasswordAccount(email);
                 };
                 btn.addEventListener('click', activate);
                 btn.addEventListener('touchend', activate, { passive: false });
@@ -866,6 +867,58 @@
             el.innerText = text;
             el.className = 'mb-3 rounded-lg border px-3 py-2 text-[11px] font-semibold ' +
                 (type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700');
+        }
+
+        async function setupSwitchPassword() {
+            if(!supabaseClient || !currentUser) {
+                alert('Bạn cần đăng nhập tài khoản trước.');
+                return;
+            }
+            const p1 = prompt('Tạo mật khẩu chuyển tài khoản cho ' + (currentUser.email || '') + '\n\nTối thiểu 6 ký tự:');
+            if(p1 === null) return;
+            if(p1.length < 6) { alert('Mật khẩu phải có ít nhất 6 ký tự.'); return; }
+            const p2 = prompt('Nhập lại mật khẩu để xác nhận:');
+            if(p2 === null) return;
+            if(p1 !== p2) { alert('Hai mật khẩu không giống nhau.'); return; }
+            const { error } = await supabaseClient.auth.updateUser({ password: p1 });
+            if(error) {
+                alert('Không thiết lập được mật khẩu: ' + error.message);
+                return;
+            }
+            rememberGoogleAccount(currentUser.email);
+            alert('Đã thiết lập mật khẩu chuyển tài khoản cho ' + currentUser.email + '.\nTừ lần sau, bấm Đổi TK và nhập mật khẩu này.');
+        }
+
+        async function loginWithKnownPasswordAccount(email) {
+            const currentEmail = currentUser?.email || '';
+            if(currentEmail && currentEmail.toLowerCase() === email.toLowerCase()) {
+                closeGoogleAccountChooser();
+                setGoogleSwitchMessage('', 'info');
+                alert('Bạn đang dùng tài khoản ' + email);
+                return;
+            }
+            const password = prompt('Nhập mật khẩu chuyển tài khoản cho:\n' + email);
+            if(password === null) return;
+            if(!password) { alert('Vui lòng nhập mật khẩu.'); return; }
+            setGoogleSwitchMessage('Đang chuyển sang ' + email + '…', 'info');
+            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+            try { if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
+            clearSupabaseAuthStorage();
+            currentUser = null;
+            refreshAccountUI();
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if(error) {
+                setGoogleSwitchMessage('Không chuyển được: ' + error.message + '. Nếu Gmail này mới chỉ đăng nhập bằng Google, hãy đăng nhập Gmail đó rồi vào TK / Đồng bộ → Thiết lập mật khẩu đổi tài khoản.', 'error');
+                return;
+            }
+            const user = data?.user || data?.session?.user || null;
+            if(!user) {
+                setGoogleSwitchMessage('Đăng nhập không trả về tài khoản. Hãy thử lại.', 'error');
+                return;
+            }
+            rememberGoogleAccount(user.email);
+            closeGoogleAccountChooser();
+            setGoogleSwitchMessage('', 'info');
         }
 
         function clearSupabaseAuthStorage() {
