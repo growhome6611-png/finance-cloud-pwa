@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Nạp config.js theo đường dẫn tương đối và dự phòng trực tiếp -->
-    <script src="./config.js?v=20261028-account-v4"></script>
+    <script src="./config.js"></script>
     <script>
       if (!window.APP_CONFIG) {
         window.APP_CONFIG = {
@@ -21,8 +21,6 @@
       }
     </script>
     <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
-    <meta name="app-version" content="finance-v11-single-session">
-    <!-- Finance PWA V11: single-session Google account switching -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -46,27 +44,27 @@
                 </div>
             </div>
 
-            <!-- Thanh tài khoản cố định: luôn hiển thị, không biến mất sau đăng nhập -->
-            <div id="topAccountBar" class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 border border-emerald-500/40">
+            <!-- Thanh tài khoản luôn hiển thị -->
+            <div class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 border border-emerald-500/40">
                 <div class="flex items-center justify-between gap-2">
-                    <div onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 cursor-pointer flex-1">
-                        <i class="fa-solid fa-circle-user text-emerald-300 text-sm"></i>
+                    <button onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 flex-1 text-left">
+                        <i class="fa-solid fa-circle-user text-emerald-300 text-base"></i>
                         <span id="topAccountEmail" class="truncate text-xs font-semibold">Chưa đăng nhập</span>
-                    </div>
-                    <span id="topAccountState" class="text-[10px] font-bold bg-amber-500 px-2 py-0.5 rounded">Chưa đăng nhập</span>
+                    </button>
+                    <span id="syncText" class="bg-emerald-600/80 px-2 py-1 rounded text-[10px] font-bold shrink-0">Cục bộ</span>
                 </div>
-                <div class="flex items-center gap-1.5 mt-2">
-                    <button id="topLoginBtn" onclick="signInWithGoogle()" class="flex-1 bg-white text-gray-700 px-2 py-1.5 rounded text-[10px] font-bold shadow">
+                <div class="grid grid-cols-3 gap-1.5 mt-2">
+                    <button id="googleQuickBtn" onclick="signInWithGoogle()" class="bg-white text-gray-700 py-1.5 rounded text-[10px] font-bold shadow-sm">
                         <i class="fa-brands fa-google text-rose-500 mr-1"></i> Đăng nhập Google
                     </button>
-                    <button id="topSyncBtn" onclick="syncNow()" class="hidden bg-emerald-600 hover:bg-emerald-500 px-2 py-1.5 rounded text-[10px] font-bold">
-                        <i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Đồng bộ</span>
-                    </button>
-                    <button id="topSwitchBtn" onclick="switchGoogleAccount()" class="hidden bg-amber-500 hover:bg-amber-400 px-2 py-1.5 rounded text-[10px] font-bold">
+                    <button id="switchQuickBtn" onclick="switchAccount()" class="bg-amber-500 hover:bg-amber-400 text-white py-1.5 rounded text-[10px] font-bold hidden">
                         <i class="fa-solid fa-right-left mr-1"></i> Đổi TK
                     </button>
-                    <button id="topLogoutBtn" onclick="signOutUser(false)" class="hidden bg-rose-600 hover:bg-rose-500 px-2 py-1.5 rounded text-[10px] font-bold">
-                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Thoát
+                    <button id="syncQuickBtn" onclick="syncNow()" class="bg-sky-600 hover:bg-sky-500 text-white py-1.5 rounded text-[10px] font-bold hidden">
+                        <i class="fa-solid fa-cloud-arrow-down mr-1"></i> Đồng bộ
+                    </button>
+                    <button id="logoutQuickBtn" onclick="signOutUser(false)" class="bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded text-[10px] font-bold hidden">
+                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất
                     </button>
                 </div>
             </div>
@@ -310,27 +308,10 @@
                     <hr class="my-2">
                     <!-- Hiển thị cố định các nút quản lý tài khoản để dễ thao tác -->
                     <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2.5 rounded-lg font-bold"><i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng nhập tài khoản</button>
-                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 border border-amber-300 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-user-gear mr-1"></i> Đổi sang tài khoản khác</button>
-                    <button id="setSwitchPasswordBtn" onclick="setupSwitchPassword()" class="w-full bg-violet-50 text-violet-700 border border-violet-200 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-key mr-1"></i> Thiết lập mật khẩu đổi tài khoản</button>
+                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 border border-amber-300 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-user-gear mr-1"></i> Đổi tài khoản Google</button>
                     <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-rose-50 text-rose-700 border border-rose-200 py-2 rounded-lg font-bold"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
                     <p class="text-[10px] text-gray-400 text-center pt-1">Dữ liệu luôn được lưu an toàn trên thiết bị và đồng bộ tự động lên Supabase khi bạn đăng nhập.</p>
                 </div>
-            </div>
-        </div>
-
-        <!-- GOOGLE ACCOUNT CHOOSER -->
-        <div id="googleAccountChooser" class="fixed inset-0 bg-black/50 z-[120] hidden flex items-end sm:items-center justify-center">
-            <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 text-xs">
-                <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-brands fa-google mr-1"></i> Chọn tài khoản</h3>
-                    <button onclick="closeGoogleAccountChooser()" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
-                </div>
-                <p class="text-[11px] text-gray-500 mb-3">Chọn email đã từng dùng trên máy này. Tài khoản đã thiết lập mật khẩu sẽ chuyển trực tiếp, không phụ thuộc phiên Google.</p>
-                <div id="googleSwitchMessage" class="hidden mb-3 rounded-lg border px-3 py-2 text-[11px] font-semibold"></div>
-                <div id="knownGoogleAccounts" class="space-y-2"></div>
-                <button onclick="loginWithAnotherGoogleAccount()" class="w-full mt-3 bg-blue-600 text-white py-2.5 rounded-lg font-bold shadow-sm">
-                    <i class="fa-brands fa-google mr-1"></i> Thêm / đăng nhập Gmail khác bằng Google
-                </button>
             </div>
         </div>
 
@@ -586,108 +567,76 @@
         function setSyncState(text, ok=true) {
             const t = document.getElementById('syncText');
             const a = document.getElementById('accountSyncStatus');
-            if(t) t.innerText = text;
+            if(t) {
+                t.innerText = text;
+                t.className = ok
+                    ? 'bg-emerald-600/80 px-2 py-1 rounded text-[10px] font-bold shrink-0'
+                    : 'bg-amber-500/90 px-2 py-1 rounded text-[10px] font-bold shrink-0';
+            }
             if(a) { a.innerText = text; a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'; }
         }
 
-        async function getActiveSessionUser() {
-            if(!supabaseClient) return null;
-            try {
-                const { data, error } = await supabaseClient.auth.getSession();
-                if(error || !data?.session?.user) return null;
-                const liveUser = data.session.user;
-                // Luôn đồng bộ biến giao diện với session thật đang ký request.
-                if(!currentUser || currentUser.id !== liveUser.id) {
-                    currentUser = liveUser;
-                    const saved = localStorage.getItem('finance_db_v5_' + liveUser.id);
-                    db = saved ? JSON.parse(saved) : freshDefaultDb();
-                    localStorage.setItem('finance_db_v5', JSON.stringify(db));
-                    localStorage.setItem('finance_last_user_id', liveUser.id);
-                    if(liveUser.email) {
-                        rememberGoogleAccount(liveUser.email);
-                        localStorage.setItem('finance_last_google_email', liveUser.email);
-                    }
-                    updateAllUI();
-                    refreshAccountUI();
-                }
-                return liveUser;
-            } catch(e) {
-                console.warn('getActiveSessionUser:', e);
-                return null;
-            }
-        }
-
         function scheduleCloudSync() {
-            if(!supabaseClient) return;
+            if(!currentUser || !supabaseClient) return;
             clearTimeout(syncTimer);
             setSyncState('Đang chờ…', false);
             syncTimer = setTimeout(pushCloudData, 700);
         }
 
         async function pushCloudData() {
-            const liveUser = await getActiveSessionUser();
-            if(!liveUser) {
-                setSyncState('Chưa đăng nhập', false);
+            if(!currentUser || !supabaseClient) {
                 alert("Bạn cần đăng nhập tài khoản trước khi đẩy dữ liệu lên Cloud!");
                 showLogin();
-                return false;
+                return;
             }
-            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return false; }
+            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
             setSyncState('Đang đồng bộ…', false);
             const payload = {
-                user_id: liveUser.id,
+                user_id: currentUser.id,
                 data: db,
                 updated_at: new Date().toISOString()
             };
             const { error } = await supabaseClient.from('user_finance_data').upsert(payload, { onConflict: 'user_id' });
             if(error) {
-                console.error('pushCloudData', { error, liveUserId: liveUser.id, email: liveUser.email });
+                console.error(error);
                 setSyncState('Lỗi đồng bộ', false);
-                alert("Lỗi đồng bộ lên Supabase: " + error.message);
-                return false;
+                alert("Lỗi đồng bộ lên Supabase: " + error.message + "\n(Hãy kiểm tra xem bạn đã chạy file setup.sql trong Supabase SQL Editor chưa)");
+                return;
             }
-            localStorage.setItem('finance_db_v5_' + liveUser.id, JSON.stringify(db));
             localStorage.setItem('finance_last_sync', payload.updated_at);
             setSyncState('Đã đồng bộ');
-            return true;
         }
 
         async function pullCloudData() {
-            const liveUser = await getActiveSessionUser();
-            if(!liveUser) {
-                setSyncState('Chưa đăng nhập', false);
+            if(!currentUser || !supabaseClient) {
                 alert("Bạn cần đăng nhập tài khoản trước khi tải dữ liệu từ Cloud!");
                 showLogin();
-                return false;
+                return;
             }
             setSyncState('Đang tải…', false);
-            const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', liveUser.id).maybeSingle();
+            const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', currentUser.id).maybeSingle();
             if(error) {
-                console.error('pullCloudData', { error, liveUserId: liveUser.id, email: liveUser.email });
+                console.error(error);
                 setSyncState('Lỗi tải', false);
                 alert("Lỗi tải dữ liệu từ Supabase: " + error.message);
-                return false;
+                return;
             }
             if(data && data.data) {
                 db = data.data;
                 localStorage.setItem('finance_db_v5', JSON.stringify(db));
-                localStorage.setItem('finance_db_v5_' + liveUser.id, JSON.stringify(db));
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
                 localStorage.setItem('finance_last_sync', data.updated_at || '');
                 updateAllUI();
-                refreshAccountUI();
                 setSyncState('Đã đồng bộ');
             } else {
-                // Chỉ tạo dòng mới bằng chính session vừa kiểm tra.
-                return await pushCloudData();
+                await pushCloudData();
             }
-            return true;
         }
 
         async function syncNow() {
-            const liveUser = await getActiveSessionUser();
-            if(!liveUser) { showLogin(); return; }
-            const pulled = await pullCloudData();
-            if(pulled !== false) await pushCloudData();
+            if(!currentUser) { showLogin(); return; }
+            await pullCloudData();
+            await pushCloudData();
             closeAccountPanel();
         }
 
@@ -698,37 +647,22 @@
         function closeAccountPanel() { document.getElementById('accountPanel').classList.add('hidden'); }
 
         function refreshAccountUI() {
-            const loggedIn = !!currentUser;
             const email = currentUser?.email || 'Chưa đăng nhập (Đang dùng cục bộ)';
-            const accountEmail = document.getElementById('accountEmail');
-            if(accountEmail) accountEmail.innerText = email;
-
+            document.getElementById('accountEmail').innerText = email;
             const topEmail = document.getElementById('topAccountEmail');
             if(topEmail) topEmail.innerText = currentUser?.email || 'Chưa đăng nhập';
 
-            const state = document.getElementById('topAccountState');
-            if(state) {
-                state.innerText = loggedIn ? 'Đã đăng nhập' : 'Chưa đăng nhập';
-                state.className = loggedIn
-                    ? 'text-[10px] font-bold bg-emerald-500 px-2 py-0.5 rounded'
-                    : 'text-[10px] font-bold bg-amber-500 px-2 py-0.5 rounded';
-            }
+            document.getElementById('logoutBtn').classList.toggle('hidden', !currentUser);
+            document.getElementById('loginFromPanelBtn').classList.toggle('hidden', !!currentUser);
 
-            const topLoginBtn = document.getElementById('topLoginBtn');
-            const topSyncBtn = document.getElementById('topSyncBtn');
-            const topSwitchBtn = document.getElementById('topSwitchBtn');
-            const topLogoutBtn = document.getElementById('topLogoutBtn');
-            if(topLoginBtn) topLoginBtn.classList.toggle('hidden', loggedIn);
-            if(topSyncBtn) topSyncBtn.classList.toggle('hidden', !loggedIn);
-            if(topSwitchBtn) topSwitchBtn.classList.toggle('hidden', !loggedIn);
-            if(topLogoutBtn) topLogoutBtn.classList.toggle('hidden', !loggedIn);
-
-            const logoutBtn = document.getElementById('logoutBtn');
-            const loginBtn = document.getElementById('loginFromPanelBtn');
-            const switchBtn = document.getElementById('switchAccountBtn');
-            if(logoutBtn) logoutBtn.classList.toggle('hidden', !loggedIn);
-            if(loginBtn) loginBtn.classList.toggle('hidden', loggedIn);
-            if(switchBtn) switchBtn.classList.toggle('hidden', !loggedIn);
+            const googleQuickBtn = document.getElementById('googleQuickBtn');
+            const switchQuickBtn = document.getElementById('switchQuickBtn');
+            const syncQuickBtn = document.getElementById('syncQuickBtn');
+            const logoutQuickBtn = document.getElementById('logoutQuickBtn');
+            if(googleQuickBtn) googleQuickBtn.classList.toggle('hidden', !!currentUser);
+            if(switchQuickBtn) switchQuickBtn.classList.toggle('hidden', !currentUser);
+            if(syncQuickBtn) syncQuickBtn.classList.toggle('hidden', !currentUser);
+            if(logoutQuickBtn) logoutQuickBtn.classList.toggle('hidden', !currentUser);
         }
 
         function showLogin() {
@@ -805,221 +739,27 @@
             msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
         }
 
-        function getKnownGoogleAccounts() {
-            try {
-                const list = JSON.parse(localStorage.getItem('finance_known_google_accounts') || '[]');
-                return Array.isArray(list) ? list.filter(Boolean) : [];
-            } catch (_) { return []; }
-        }
-
-        function rememberGoogleAccount(email) {
-            if(!email) return;
-            const list = getKnownGoogleAccounts().filter(x => x !== email);
-            list.unshift(email);
-            localStorage.setItem('finance_known_google_accounts', JSON.stringify(list.slice(0, 8)));
-        }
-
-
-        // V12: Google chỉ dùng cho đăng nhập/thêm tài khoản lần đầu; đổi tài khoản ưu tiên Email + mật khẩu Supabase.
-        // Chỉ ghi nhớ địa chỉ Gmail để hiển thị trong bộ chọn tài khoản.
-
-        function renderKnownGoogleAccounts() {
-            const box = document.getElementById('knownGoogleAccounts');
-            if(!box) return;
-            const list = getKnownGoogleAccounts();
-            if(!list.length) {
-                box.innerHTML = '<div class="text-center text-gray-400 py-2">Chưa có Gmail nào được ghi nhớ trên máy này.</div>';
-                return;
-            }
-            box.innerHTML = list.map((email, idx) => `
-                <button type="button" data-account-index="${idx}" class="google-account-choice w-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-3 flex items-center justify-between cursor-pointer touch-manipulation">
-                    <span class="truncate font-semibold text-gray-700"><i class="fa-solid fa-circle-user mr-2 text-emerald-600"></i>${email}</span>
-                    <span class="text-emerald-700 font-bold">Đăng nhập</span>
-                </button>`).join('');
-
-            box.querySelectorAll('.google-account-choice').forEach(btn => {
-                const activate = async (ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    const idx = Number(btn.dataset.accountIndex);
-                    const email = list[idx];
-                    if(email) await loginWithKnownPasswordAccount(email);
-                };
-                btn.addEventListener('click', activate);
-                btn.addEventListener('touchend', activate, { passive: false });
-            });
-        }
-
-        function openGoogleAccountChooser() {
-            renderKnownGoogleAccounts();
-            document.getElementById('googleAccountChooser')?.classList.remove('hidden');
-        }
-
-        function closeGoogleAccountChooser() {
-            document.getElementById('googleAccountChooser')?.classList.add('hidden');
-        }
-
-        function setGoogleSwitchMessage(text = '', type = 'info') {
-            const el = document.getElementById('googleSwitchMessage');
-            if(!el) return;
-            if(!text) { el.classList.add('hidden'); el.innerText = ''; return; }
-            el.classList.remove('hidden');
-            el.innerText = text;
-            el.className = 'mb-3 rounded-lg border px-3 py-2 text-[11px] font-semibold ' +
-                (type === 'error' ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-blue-50 border-blue-200 text-blue-700');
-        }
-
-        async function setupSwitchPassword() {
-            if(!supabaseClient || !currentUser) {
-                alert('Bạn cần đăng nhập tài khoản trước.');
-                return;
-            }
-            const p1 = prompt('Tạo mật khẩu chuyển tài khoản cho ' + (currentUser.email || '') + '\n\nTối thiểu 6 ký tự:');
-            if(p1 === null) return;
-            if(p1.length < 6) { alert('Mật khẩu phải có ít nhất 6 ký tự.'); return; }
-            const p2 = prompt('Nhập lại mật khẩu để xác nhận:');
-            if(p2 === null) return;
-            if(p1 !== p2) { alert('Hai mật khẩu không giống nhau.'); return; }
-            const { error } = await supabaseClient.auth.updateUser({ password: p1 });
-            if(error) {
-                alert('Không thiết lập được mật khẩu: ' + error.message);
-                return;
-            }
-            rememberGoogleAccount(currentUser.email);
-            alert('Đã thiết lập mật khẩu chuyển tài khoản cho ' + currentUser.email + '.\nTừ lần sau, bấm Đổi TK và nhập mật khẩu này.');
-        }
-
-        async function loginWithKnownPasswordAccount(email) {
-            const currentEmail = currentUser?.email || '';
-            if(currentEmail && currentEmail.toLowerCase() === email.toLowerCase()) {
-                closeGoogleAccountChooser();
-                setGoogleSwitchMessage('', 'info');
-                alert('Bạn đang dùng tài khoản ' + email);
-                return;
-            }
-            const password = prompt('Nhập mật khẩu chuyển tài khoản cho:\n' + email);
-            if(password === null) return;
-            if(!password) { alert('Vui lòng nhập mật khẩu.'); return; }
-            setGoogleSwitchMessage('Đang chuyển sang ' + email + '…', 'info');
-            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            try { if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
-            clearSupabaseAuthStorage();
-            currentUser = null;
-            refreshAccountUI();
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if(error) {
-                setGoogleSwitchMessage('Không chuyển được: ' + error.message + '. Nếu Gmail này mới chỉ đăng nhập bằng Google, hãy đăng nhập Gmail đó rồi vào TK / Đồng bộ → Thiết lập mật khẩu đổi tài khoản.', 'error');
-                return;
-            }
-            const user = data?.user || data?.session?.user || null;
-            if(!user) {
-                setGoogleSwitchMessage('Đăng nhập không trả về tài khoản. Hãy thử lại.', 'error');
-                return;
-            }
-            rememberGoogleAccount(user.email);
-            closeGoogleAccountChooser();
-            setGoogleSwitchMessage('', 'info');
-        }
-
-        function clearSupabaseAuthStorage() {
-            for (let i = localStorage.length - 1; i >= 0; i--) {
-                const k = localStorage.key(i);
-                if(k && (/^sb-.*-auth-token/.test(k) || k.includes('supabase.auth.token'))) localStorage.removeItem(k);
-            }
-            for (let i = sessionStorage.length - 1; i >= 0; i--) {
-                const k = sessionStorage.key(i);
-                if(k && (/^sb-.*-auth-token/.test(k) || k.includes('supabase.auth.token'))) sessionStorage.removeItem(k);
-            }
-        }
-
-        async function clearLocalSupabaseSession() {
-            if(currentUser) {
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            }
-            try {
-                if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' });
-            } catch (e) { console.warn('Local signout:', e); }
-            clearSupabaseAuthStorage();
-            currentUser = null;
-            refreshAccountUI();
-            try {
-                if(supabaseClient) {
-                    const { data } = await supabaseClient.auth.getSession();
-                    if(data?.session) {
-                        await supabaseClient.auth.signOut({ scope: 'local' }).catch(() => {});
-                        clearSupabaseAuthStorage();
-                    }
-                }
-            } catch (_) {}
-        }
-
-        async function startGoogleOAuth(loginHint = '', isSwitch = false) {
-            if(!cloudConfigured()) return showConfigError();
+        async function signInWithGoogle(forceChooseAccount = false) {
+            if(!supabaseClient) return showConfigError();
             const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
-            const queryParams = { prompt: 'select_account consent' };
-            if(loginHint) queryParams.login_hint = loginHint;
-            const options = { queryParams, skipBrowserRedirect: true };
-            if(redirectUrl) options.redirectTo = redirectUrl;
-
-            // Dùng client mới cho lần OAuth để không mang auth state cũ trong bộ nhớ.
-            const oauthClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
-            const { data, error } = await oauthClient.auth.signInWithOAuth({ provider: 'google', options });
+            const options = redirectUrl ? { redirectTo: redirectUrl } : {};
+            if(forceChooseAccount) options.queryParams = { prompt: 'select_account' };
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options
+            });
             if(error) {
-                sessionStorage.removeItem('finance_switch_in_progress');
-                document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
-                setGoogleSwitchMessage('Không thể mở Google để đổi tài khoản: ' + error.message, 'error');
-                return;
+                const msg = document.getElementById('authMessage');
+                if(msg) msg.innerText = 'Lỗi đăng nhập Google: ' + error.message;
+                else alert('Lỗi đăng nhập Google: ' + error.message);
             }
-            if(data?.url) window.location.assign(data.url);
-        }
-
-        async function signInWithGoogle() {
-            await startGoogleOAuth('', false);
-        }
-
-        async function switchGoogleAccount() {
-            openGoogleAccountChooser();
-        }
-
-        async function prepareCleanAccountSwitch(expectedEmail = '') {
-            if(currentUser) {
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            }
-            const previousEmail = currentUser?.email || localStorage.getItem('finance_last_google_email') || '';
-            sessionStorage.setItem('finance_switch_in_progress', '1');
-            sessionStorage.setItem('finance_switch_previous_email', previousEmail);
-            sessionStorage.setItem('finance_switch_expected_email', expectedEmail || '__ANY__');
-            sessionStorage.setItem('finance_switch_started_at', String(Date.now()));
-
-            // Đăng xuất đúng 1 session hiện tại và xóa token Supabase cục bộ.
-            try {
-                if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' });
-            } catch (e) { console.warn('V11 local signout:', e); }
-            clearSupabaseAuthStorage();
-            currentUser = null;
-            refreshAccountUI();
-            setSyncState('Đang đổi tài khoản…', false);
-
-            // Chờ auth state và storage ổn định trước khi mở Google OAuth mới.
-            await new Promise(resolve => setTimeout(resolve, 350));
-        }
-
-        async function loginWithKnownGoogleAccount(email) {
-            closeGoogleAccountChooser();
-            await prepareCleanAccountSwitch(email);
-            await startGoogleOAuth(email, true);
-        }
-
-        async function loginWithAnotherGoogleAccount() {
-            closeGoogleAccountChooser();
-            await prepareCleanAccountSwitch('');
-            await startGoogleOAuth('', true);
         }
 
         async function signOutUser(showLoginAfter = true) {
-            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            try { if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
-            clearSupabaseAuthStorage();
+            if(currentUser) {
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+            }
+            if(supabaseClient) await supabaseClient.auth.signOut();
             currentUser = null;
             offlineMode = true;
             db = freshDefaultDb();
@@ -1032,42 +772,19 @@
         }
 
         async function switchAccount() {
-            openGoogleAccountChooser();
+            const msg = document.getElementById('authMessage');
+            if(msg) msg.innerText = '';
+            if(currentUser) {
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+                if(supabaseClient) await supabaseClient.auth.signOut();
+                currentUser = null;
+                refreshAccountUI();
+            }
+            await signInWithGoogle(true);
         }
 
         function showConfigError() {
             document.getElementById('authMessage').innerText = 'Chưa cấu hình Supabase. Hãy kiểm tra SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY.';
-        }
-
-        async function verifyAccountSwitch(nextUser) {
-            const switching = sessionStorage.getItem('finance_switch_in_progress') === '1';
-            if(!switching || !nextUser?.email) return true;
-            const expected = sessionStorage.getItem('finance_switch_expected_email') || '__ANY__';
-            const previous = sessionStorage.getItem('finance_switch_previous_email') || '';
-            const actual = nextUser.email;
-            const exactMismatch = expected !== '__ANY__' && actual.toLowerCase() !== expected.toLowerCase();
-            const sameAsOldWhenChoosingOther = expected !== '__ANY__' && previous && actual.toLowerCase() === previous.toLowerCase() && expected.toLowerCase() !== previous.toLowerCase();
-            if(exactMismatch || sameAsOldWhenChoosingOther) {
-                try { await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
-                clearSupabaseAuthStorage();
-                currentUser = null;
-                sessionStorage.removeItem('finance_switch_in_progress');
-                sessionStorage.removeItem('finance_switch_expected_email');
-                sessionStorage.removeItem('finance_switch_previous_email');
-                refreshAccountUI();
-                setSyncState('Chưa đổi được TK', false);
-                setTimeout(() => {
-                    openGoogleAccountChooser();
-                    setGoogleSwitchMessage(`Google vẫn trả về ${actual}, chưa phải ${expected}. Hãy bấm Chọn Gmail khác và chọn đúng tài khoản trong màn hình Google.`, 'error');
-                }, 100);
-                return false;
-            }
-            sessionStorage.removeItem('finance_switch_in_progress');
-            sessionStorage.removeItem('finance_switch_expected_email');
-            sessionStorage.removeItem('finance_switch_previous_email');
-            sessionStorage.removeItem('finance_switch_started_at');
-            localStorage.setItem('finance_last_google_email', actual);
-            return true;
         }
 
         async function initCloud() {
@@ -1075,14 +792,11 @@
                 setSyncState('Chưa cấu hình', false);
                 return;
             }
-            localStorage.removeItem('finance_saved_sessions_v9');
             supabaseClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
             const { data: { session } } = await supabaseClient.auth.getSession();
             currentUser = session?.user || null;
-            if(currentUser && !(await verifyAccountSwitch(currentUser))) currentUser = null;
             supabaseClient.auth.onAuthStateChange(async (event, session) => {
                 const nextUser = session?.user || null;
-                if(nextUser && !(await verifyAccountSwitch(nextUser))) return;
                 if(nextUser && nextUser.id !== currentUser?.id) {
                     const saved = localStorage.getItem('finance_db_v5_' + nextUser.id);
                     db = saved ? JSON.parse(saved) : freshDefaultDb();
@@ -1090,7 +804,6 @@
                     updateAllUI();
                 }
                 currentUser = nextUser;
-                if(currentUser?.email) { rememberGoogleAccount(currentUser.email); localStorage.setItem('finance_last_google_email', currentUser.email); }
                 refreshAccountUI();
                 if(currentUser) {
                     localStorage.setItem('finance_last_user_id', currentUser.id);
@@ -1100,7 +813,6 @@
             });
             refreshAccountUI();
             if(currentUser) {
-                if(currentUser.email) { rememberGoogleAccount(currentUser.email); localStorage.setItem('finance_last_google_email', currentUser.email); }
                 const saved = localStorage.getItem('finance_db_v5_' + currentUser.id);
                 if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
                 localStorage.setItem('finance_last_user_id', currentUser.id);
@@ -2060,7 +1772,7 @@
         window.addEventListener('load', async () => {
             initApp();
             if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-                navigator.serviceWorker.register('./service-worker.js?v=20261028-account-v4').then(r => r.update()).catch(console.error);
+                navigator.serviceWorker.register('./service-worker.js').catch(console.error);
             }
             await initCloud();
         });
