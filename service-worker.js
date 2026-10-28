@@ -1,5 +1,5 @@
 // V10 cache
-const CACHE_NAME = 'finance-cloud-pwa-v12';
+const CACHE_NAME = 'finance-drive-pwa-v13';
 const APP_SHELL = ['./', './index.html', './config.js'];
 
 self.addEventListener('install', event => {

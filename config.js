@@ -1,6 +1,8 @@
-// Điền 2 giá trị này từ Supabase Dashboard > Project Settings > API.
-// Publishable/anon key được thiết kế để dùng ở client khi RLS đã bật.
+// Google Drive sync configuration
+// Create OAuth Client ID: Google Cloud Console > Google Auth Platform > Clients > Web application.
+// Add your Vercel origin, e.g. https://financepwavercel.vercel.app, to Authorized JavaScript origins.
 window.APP_CONFIG = {
-  SUPABASE_URL: "https://fwjkaysgekyaogfmzjcg.supabase.co",
-  SUPABASE_PUBLISHABLE_KEY: "sb_publishable_hRC0vAPMZshKtur-5v7v6w_syH76JRW"
+  GOOGLE_CLIENT_ID: "PASTE_GOOGLE_WEB_CLIENT_ID_HERE",
+  DRIVE_FOLDER_NAME: "FinancePWA",
+  DRIVE_FILE_NAME: "finance_data.json"
 };
