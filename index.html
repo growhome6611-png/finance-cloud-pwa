@@ -315,6 +315,21 @@
             </div>
         </div>
 
+        <!-- GOOGLE ACCOUNT CHOOSER -->
+        <div id="googleAccountChooser" class="fixed inset-0 bg-black/50 z-[120] hidden flex items-end sm:items-center justify-center">
+            <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 text-xs">
+                <div class="flex justify-between items-center border-b pb-2 mb-3">
+                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-brands fa-google mr-1"></i> Chọn tài khoản Google</h3>
+                    <button onclick="closeGoogleAccountChooser()" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <p class="text-[11px] text-gray-500 mb-3">Chọn Gmail đã từng dùng trên máy này, hoặc chọn một Gmail khác.</p>
+                <div id="knownGoogleAccounts" class="space-y-2"></div>
+                <button onclick="loginWithAnotherGoogleAccount()" class="w-full mt-3 bg-blue-600 text-white py-2.5 rounded-lg font-bold shadow-sm">
+                    <i class="fa-brands fa-google mr-1"></i> Chọn Gmail khác
+                </button>
+            </div>
+        </div>
+
         <!-- MODAL THÊM / SỬA GIAO DỊCH THU CHI -->
         <div id="txModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
             <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 max-h-[90vh] overflow-y-auto">
@@ -749,40 +764,98 @@
             msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
         }
 
-        async function signInWithGoogle(forceAccountChoice = false) {
+        function getKnownGoogleAccounts() {
+            try {
+                const list = JSON.parse(localStorage.getItem('finance_known_google_accounts') || '[]');
+                return Array.isArray(list) ? list.filter(Boolean) : [];
+            } catch (_) { return []; }
+        }
+
+        function rememberGoogleAccount(email) {
+            if(!email) return;
+            const list = getKnownGoogleAccounts().filter(x => x !== email);
+            list.unshift(email);
+            localStorage.setItem('finance_known_google_accounts', JSON.stringify(list.slice(0, 8)));
+        }
+
+        function renderKnownGoogleAccounts() {
+            const box = document.getElementById('knownGoogleAccounts');
+            if(!box) return;
+            const list = getKnownGoogleAccounts();
+            if(!list.length) {
+                box.innerHTML = '<div class="text-center text-gray-400 py-2">Chưa có Gmail nào được ghi nhớ trên máy này.</div>';
+                return;
+            }
+            box.innerHTML = list.map(email => `
+                <button onclick="loginWithKnownGoogleAccount(${JSON.stringify(email)})" class="w-full border border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-lg px-3 py-2.5 flex items-center justify-between">
+                    <span class="truncate font-semibold text-gray-700"><i class="fa-solid fa-circle-user mr-2 text-emerald-600"></i>${email}</span>
+                    <span class="text-emerald-700 font-bold">Chọn</span>
+                </button>`).join('');
+        }
+
+        function openGoogleAccountChooser() {
+            renderKnownGoogleAccounts();
+            document.getElementById('googleAccountChooser')?.classList.remove('hidden');
+        }
+
+        function closeGoogleAccountChooser() {
+            document.getElementById('googleAccountChooser')?.classList.add('hidden');
+        }
+
+        async function clearLocalSupabaseSession() {
+            if(currentUser) {
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+            }
+            try {
+                if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' });
+            } catch (e) { console.warn('Local signout:', e); }
+            currentUser = null;
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if(k && /^sb-.*-auth-token/.test(k)) localStorage.removeItem(k);
+            }
+            refreshAccountUI();
+        }
+
+        async function startGoogleOAuth(loginHint = '') {
             if(!supabaseClient) return showConfigError();
             const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
-            const queryParams = forceAccountChoice
-                ? { prompt: 'consent select_account', max_age: '0' }
-                : { prompt: 'select_account' };
-            const options = { queryParams };
+            const queryParams = { prompt: 'select_account' };
+            if(loginHint) queryParams.login_hint = loginHint;
+            const options = { queryParams, skipBrowserRedirect: true };
             if(redirectUrl) options.redirectTo = redirectUrl;
-            const { error } = await supabaseClient.auth.signInWithOAuth({
-                provider: 'google',
-                options
-            });
-            if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
+            const { data, error } = await supabaseClient.auth.signInWithOAuth({ provider: 'google', options });
+            if(error) {
+                document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
+                return;
+            }
+            if(data?.url) window.location.assign(data.url);
+        }
+
+        async function signInWithGoogle() {
+            await startGoogleOAuth('');
         }
 
         async function switchGoogleAccount() {
-            if(!supabaseClient) return showConfigError();
-            if(currentUser) {
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-                await supabaseClient.auth.signOut({ scope: 'local' });
-                currentUser = null;
-                offlineMode = false;
-                refreshAccountUI();
-                setSyncState('Đang chọn tài khoản…', false);
-            }
-            await signInWithGoogle(true);
+            openGoogleAccountChooser();
+        }
+
+        async function loginWithKnownGoogleAccount(email) {
+            closeGoogleAccountChooser();
+            setSyncState('Đang đổi tài khoản…', false);
+            await clearLocalSupabaseSession();
+            await startGoogleOAuth(email);
+        }
+
+        async function loginWithAnotherGoogleAccount() {
+            closeGoogleAccountChooser();
+            setSyncState('Đang chọn Gmail…', false);
+            await clearLocalSupabaseSession();
+            await startGoogleOAuth('');
         }
 
         async function signOutUser(showLoginAfter = true) {
-            if(currentUser) {
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            }
-            if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' });
-            currentUser = null;
+            await clearLocalSupabaseSession();
             offlineMode = true;
             db = freshDefaultDb();
             localStorage.setItem('finance_db_v5', JSON.stringify(db));
@@ -794,12 +867,7 @@
         }
 
         async function switchAccount() {
-            document.getElementById('authMessage').innerText = '';
-            if(currentUser) {
-                await signOutUser(true);
-            } else {
-                showLogin();
-            }
+            openGoogleAccountChooser();
         }
 
         function showConfigError() {
@@ -823,6 +891,7 @@
                     updateAllUI();
                 }
                 currentUser = nextUser;
+                if(currentUser?.email) rememberGoogleAccount(currentUser.email);
                 refreshAccountUI();
                 if(currentUser) {
                     localStorage.setItem('finance_last_user_id', currentUser.id);
@@ -832,6 +901,7 @@
             });
             refreshAccountUI();
             if(currentUser) {
+                if(currentUser.email) rememberGoogleAccount(currentUser.email);
                 const saved = localStorage.getItem('finance_db_v5_' + currentUser.id);
                 if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
                 localStorage.setItem('finance_last_user_id', currentUser.id);
