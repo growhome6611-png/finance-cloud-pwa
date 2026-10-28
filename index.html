@@ -779,6 +779,80 @@
             localStorage.setItem('finance_known_google_accounts', JSON.stringify(list.slice(0, 8)));
         }
 
+
+        const SAVED_SESSIONS_KEY = 'finance_saved_sessions_v9';
+
+        function getSavedSessions() {
+            try {
+                const obj = JSON.parse(localStorage.getItem(SAVED_SESSIONS_KEY) || '{}');
+                return obj && typeof obj === 'object' ? obj : {};
+            } catch (_) { return {}; }
+        }
+
+        function saveSessionSnapshot(session) {
+            const email = session?.user?.email?.toLowerCase();
+            if(!email || !session?.access_token || !session?.refresh_token) return;
+            const all = getSavedSessions();
+            all[email] = {
+                access_token: session.access_token,
+                refresh_token: session.refresh_token,
+                user_id: session.user.id,
+                updated_at: Date.now()
+            };
+            localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(all));
+            rememberGoogleAccount(session.user.email);
+        }
+
+        function removeSavedSession(email) {
+            if(!email) return;
+            const all = getSavedSessions();
+            delete all[email.toLowerCase()];
+            localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(all));
+        }
+
+        async function snapshotCurrentSession() {
+            if(!supabaseClient) return;
+            try {
+                const { data } = await supabaseClient.auth.getSession();
+                if(data?.session) saveSessionSnapshot(data.session);
+            } catch (e) { console.warn('snapshot session:', e); }
+        }
+
+        async function activateSavedSession(email) {
+            if(!supabaseClient || !email) return false;
+            const saved = getSavedSessions()[email.toLowerCase()];
+            if(!saved?.access_token || !saved?.refresh_token) return false;
+            setSyncState('Đang chuyển TK…', false);
+            try {
+                const { data, error } = await supabaseClient.auth.setSession({
+                    access_token: saved.access_token,
+                    refresh_token: saved.refresh_token
+                });
+                if(error || !data?.session || data.session.user?.email?.toLowerCase() !== email.toLowerCase()) {
+                    console.warn('Saved session invalid:', error);
+                    removeSavedSession(email);
+                    return false;
+                }
+                saveSessionSnapshot(data.session);
+                currentUser = data.session.user;
+                const local = localStorage.getItem('finance_db_v5_' + currentUser.id);
+                db = local ? JSON.parse(local) : freshDefaultDb();
+                localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                localStorage.setItem('finance_last_user_id', currentUser.id);
+                localStorage.setItem('finance_last_google_email', currentUser.email || email);
+                updateAllUI();
+                refreshAccountUI();
+                document.getElementById('authOverlay')?.classList.add('hidden');
+                await pullCloudData();
+                setSyncState('Đã đồng bộ');
+                return true;
+            } catch (e) {
+                console.warn('activate saved session:', e);
+                removeSavedSession(email);
+                return false;
+            }
+        }
+
         function renderKnownGoogleAccounts() {
             const box = document.getElementById('knownGoogleAccounts');
             if(!box) return;
@@ -891,24 +965,31 @@
 
         async function loginWithKnownGoogleAccount(email) {
             closeGoogleAccountChooser();
-            setSyncState('Đang đổi tài khoản…', false);
-            const previousEmail = currentUser?.email || localStorage.getItem('finance_last_google_email') || '';
-            if(previousEmail) localStorage.setItem('finance_last_google_email', previousEmail);
-            await clearLocalSupabaseSession();
+            await snapshotCurrentSession();
+            const currentEmail = currentUser?.email?.toLowerCase() || '';
+            if(currentEmail === email.toLowerCase()) {
+                setSyncState('Đang dùng TK này');
+                return;
+            }
+            if(await activateSavedSession(email)) return;
+            setSyncState('Cần đăng nhập lại…', false);
             await startGoogleOAuth(email, true);
         }
 
         async function loginWithAnotherGoogleAccount() {
             closeGoogleAccountChooser();
+            await snapshotCurrentSession();
             setSyncState('Đang chọn Gmail…', false);
-            const previousEmail = currentUser?.email || localStorage.getItem('finance_last_google_email') || '';
-            if(previousEmail) localStorage.setItem('finance_last_google_email', previousEmail);
-            await clearLocalSupabaseSession();
             await startGoogleOAuth('', true);
         }
 
         async function signOutUser(showLoginAfter = true) {
-            await clearLocalSupabaseSession();
+            const emailToRemove = currentUser?.email || '';
+            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+            try { if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
+            clearSupabaseAuthStorage();
+            if(emailToRemove) removeSavedSession(emailToRemove);
+            currentUser = null;
             offlineMode = true;
             db = freshDefaultDb();
             localStorage.setItem('finance_db_v5', JSON.stringify(db));
@@ -978,6 +1059,7 @@
                 }
                 currentUser = nextUser;
                 if(currentUser?.email) { rememberGoogleAccount(currentUser.email); localStorage.setItem('finance_last_google_email', currentUser.email); }
+                if(session) saveSessionSnapshot(session);
                 refreshAccountUI();
                 if(currentUser) {
                     localStorage.setItem('finance_last_user_id', currentUser.id);
@@ -988,6 +1070,7 @@
             refreshAccountUI();
             if(currentUser) {
                 if(currentUser.email) { rememberGoogleAccount(currentUser.email); localStorage.setItem('finance_last_google_email', currentUser.email); }
+                if(session) saveSessionSnapshot(session);
                 const saved = localStorage.getItem('finance_db_v5_' + currentUser.id);
                 if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
                 localStorage.setItem('finance_last_user_id', currentUser.id);
