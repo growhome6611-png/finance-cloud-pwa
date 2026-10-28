@@ -26,12 +26,15 @@
             <div class="flex justify-between items-center mb-2">
                 <h1 class="text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-wallet"></i> Sổ Thu Chi & Tài Chính</h1>
                 <div class="flex gap-2 items-center">
-                    <button id="syncBadge" onclick="openAccountPanel()" title="Tài khoản & đồng bộ" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-cloud"></i> <span id="syncText">Cục bộ</span></button>
                     <button onclick="exportData()" title="Xuất dữ liệu" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs"><i class="fa-solid fa-download"></i></button>
                     <button onclick="document.getElementById('importFile').click()" title="Nhập dữ liệu" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs"><i class="fa-solid fa-upload"></i></button>
                     <input type="file" id="importFile" class="hidden" onchange="importData(event)">
                 </div>
             </div>
+            <button onclick="openAccountPanel()" class="w-full mb-2 bg-emerald-600/70 hover:bg-emerald-600 rounded-lg px-3 py-2 flex items-center justify-between text-left">
+                <span class="min-w-0 flex items-center gap-2"><i class="fa-solid fa-circle-user"></i><span id="topAccountEmail" class="truncate text-[11px] font-semibold">Chưa đăng nhập</span></span>
+                <span class="shrink-0 text-[10px] font-bold"><i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Cục bộ</span> <i class="fa-solid fa-chevron-right ml-1 opacity-70"></i></span>
+            </button>
             <!-- Tổng quan số dư -->
             <div class="bg-emerald-800/60 rounded-xl p-3 backdrop-blur-sm">
                 <p class="text-xs text-emerald-200">Tổng tài sản ròng (Net Worth)</p>
@@ -232,11 +235,14 @@
                     <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500">Tài khoản:</span><br><strong id="accountEmail">Chưa đăng nhập</strong></div>
                     <div class="bg-gray-50 rounded-lg p-3 flex justify-between"><span>Trạng thái</span><strong id="accountSyncStatus" class="text-emerald-600">Cục bộ</strong></div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="syncNow()" class="bg-emerald-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ ngay</button>
-                        <button onclick="exportData()" class="bg-blue-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-download mr-1"></i> Sao lưu JSON</button>
+                        <button onclick="pullCloudData(); closeAccountPanel()" class="bg-sky-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-down mr-1"></i> Tải từ Cloud</button>
+                        <button onclick="pushCloudData(); closeAccountPanel()" class="bg-emerald-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Đẩy lên Cloud</button>
                     </div>
+                    <button onclick="syncNow()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ ngay</button>
+                    <button onclick="exportData()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-download mr-1"></i> Sao lưu JSON</button>
                     <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2 rounded-lg font-bold">Đăng nhập</button>
-                    <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-bold hidden">Đăng xuất</button>
+                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 py-2 rounded-lg font-bold hidden"><i class="fa-solid fa-user-gear mr-1"></i> Đăng nhập bằng tài khoản khác</button>
+                    <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-bold hidden"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
                     <p class="text-[10px] text-gray-400">Dữ liệu vẫn được lưu cục bộ trên thiết bị. Khi đăng nhập, ứng dụng đồng bộ thêm một bản lên Supabase.</p>
                 </div>
             </div>
@@ -443,7 +449,7 @@
 
     <!-- JavaScript Logic -->
     <script>
-        let db = JSON.parse(localStorage.getItem('finance_db_v5')) || {
+        const DEFAULT_DB = {
             accounts: ['Tiền mặt', 'Techcombank', 'MB Bank', 'Ví MoMo', 'TK Chứng khoán', 'Ví Crypto'],
             categories: {
                 EXPENSE: ['Ăn uống', 'Nhà ở', 'Di chuyển', 'Mua sắm', 'Hóa đơn & Tiện ích', 'Khác'],
@@ -455,6 +461,12 @@
             crypto: { cashBalance: 0, portfolio: [], history: [] }, // history: [{id, date, amount, type: 'DEPOSIT'/'WITHDRAW', note}]
             debts: []
         };
+
+        function freshDefaultDb() {
+            return JSON.parse(JSON.stringify(DEFAULT_DB));
+        }
+
+        let db = JSON.parse(localStorage.getItem('finance_db_v5')) || freshDefaultDb();
 
         if(!db.stocks.history) db.stocks.history = [];
         if(!db.crypto.history) db.crypto.history = [];
@@ -476,6 +488,7 @@
 
         function saveData() {
             localStorage.setItem('finance_db_v5', JSON.stringify(db));
+            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
             updateAllUI();
             scheduleCloudSync();
         }
@@ -521,6 +534,7 @@
             if(data && data.data) {
                 db = data.data;
                 localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
                 localStorage.setItem('finance_last_sync', data.updated_at || '');
                 updateAllUI();
                 setSyncState('Đã đồng bộ');
@@ -543,7 +557,10 @@
         function refreshAccountUI() {
             const email = currentUser?.email || 'Chưa đăng nhập';
             document.getElementById('accountEmail').innerText = email;
+            const topEmail = document.getElementById('topAccountEmail');
+            if(topEmail) topEmail.innerText = email;
             document.getElementById('logoutBtn').classList.toggle('hidden', !currentUser);
+            document.getElementById('switchAccountBtn').classList.toggle('hidden', !currentUser);
             document.getElementById('loginFromPanelBtn').classList.toggle('hidden', !!currentUser);
         }
         function showLogin() { closeAccountPanel(); document.getElementById('authOverlay').classList.remove('hidden'); }
@@ -565,14 +582,25 @@
             if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
         }
 
-        async function signOutUser() {
+        async function signOutUser(showLoginAfter = true) {
+            if(currentUser) {
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+            }
             if(supabaseClient) await supabaseClient.auth.signOut();
             currentUser = null;
             offlineMode = true;
+            db = freshDefaultDb();
+            localStorage.setItem('finance_db_v5', JSON.stringify(db));
+            updateAllUI();
             refreshAccountUI();
-            setSyncState('Cục bộ', false);
+            setSyncState('Chưa đăng nhập', false);
             closeAccountPanel();
-            showLogin();
+            if(showLoginAfter) showLogin();
+        }
+
+        async function switchAccount() {
+            document.getElementById('authMessage').innerText = '';
+            await signOutUser(true);
         }
 
         function showConfigError() {
@@ -590,15 +618,26 @@
             const { data: { session } } = await supabaseClient.auth.getSession();
             currentUser = session?.user || null;
             supabaseClient.auth.onAuthStateChange(async (event, session) => {
-                currentUser = session?.user || null;
+                const nextUser = session?.user || null;
+                if(nextUser && nextUser.id !== currentUser?.id) {
+                    const saved = localStorage.getItem('finance_db_v5_' + nextUser.id);
+                    db = saved ? JSON.parse(saved) : freshDefaultDb();
+                    localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                    updateAllUI();
+                }
+                currentUser = nextUser;
                 refreshAccountUI();
                 if(currentUser) {
+                    localStorage.setItem('finance_last_user_id', currentUser.id);
                     document.getElementById('authOverlay').classList.add('hidden');
                     setTimeout(pullCloudData, 0);
                 }
             });
             refreshAccountUI();
             if(currentUser) {
+                const saved = localStorage.getItem('finance_db_v5_' + currentUser.id);
+                if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
+                localStorage.setItem('finance_last_user_id', currentUser.id);
                 document.getElementById('authOverlay').classList.add('hidden');
                 await pullCloudData();
             } else if(!offlineMode) {
