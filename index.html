@@ -749,12 +749,17 @@
             msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
         }
 
-        async function signInWithGoogle() {
+        async function signInWithGoogle(forceAccountChoice = false) {
             if(!supabaseClient) return showConfigError();
             const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
+            const queryParams = forceAccountChoice
+                ? { prompt: 'consent select_account', max_age: '0' }
+                : { prompt: 'select_account' };
+            const options = { queryParams };
+            if(redirectUrl) options.redirectTo = redirectUrl;
             const { error } = await supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
-                options: redirectUrl ? { redirectTo: redirectUrl, queryParams: { prompt: 'select_account' } } : { queryParams: { prompt: 'select_account' } }
+                options
             });
             if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
         }
@@ -763,18 +768,20 @@
             if(!supabaseClient) return showConfigError();
             if(currentUser) {
                 localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-                await supabaseClient.auth.signOut();
+                await supabaseClient.auth.signOut({ scope: 'local' });
                 currentUser = null;
+                offlineMode = false;
                 refreshAccountUI();
+                setSyncState('Đang chọn tài khoản…', false);
             }
-            await signInWithGoogle();
+            await signInWithGoogle(true);
         }
 
         async function signOutUser(showLoginAfter = true) {
             if(currentUser) {
                 localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
             }
-            if(supabaseClient) await supabaseClient.auth.signOut();
+            if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' });
             currentUser = null;
             offlineMode = true;
             db = freshDefaultDb();
