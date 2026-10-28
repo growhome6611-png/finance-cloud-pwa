@@ -7,10 +7,19 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Sổ Thu Chi">
-    <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/config.js"></script>
+    <!-- Nạp config.js theo đường dẫn tương đối và dự phòng trực tiếp -->
+    <script src="./config.js"></script>
+    <script>
+      if (!window.APP_CONFIG) {
+        window.APP_CONFIG = {
+          SUPABASE_URL: "https://fwjkaysgekyaogfmzjcg.supabase.co",
+          SUPABASE_PUBLISHABLE_KEY: "sb_publishable_hRC0vAPMZshKtur-5v7v6w_syH76JRW"
+        };
+      }
+    </script>
     <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -25,19 +34,32 @@
         <header class="bg-emerald-700 text-white p-4 sticky top-0 z-20 shadow">
             <div class="flex justify-between items-center mb-2">
                 <h1 class="text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-wallet"></i> Sổ Thu Chi & Tài Chính</h1>
-                <div class="flex gap-2 items-center">
+                <div class="flex gap-1.5 items-center">
+                    <button onclick="openAccountPanel()" title="Tài khoản & Đồng bộ" class="bg-amber-500 hover:bg-amber-400 text-white px-2.5 py-1 rounded text-xs font-bold shadow flex items-center gap-1">
+                        <i class="fa-solid fa-user-check"></i> TK / Đồng bộ
+                    </button>
                     <button onclick="exportData()" title="Xuất dữ liệu" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs"><i class="fa-solid fa-download"></i></button>
                     <button onclick="document.getElementById('importFile').click()" title="Nhập dữ liệu" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs"><i class="fa-solid fa-upload"></i></button>
                     <input type="file" id="importFile" class="hidden" onchange="importData(event)">
                 </div>
             </div>
-            <button onclick="openAccountPanel()" class="w-full mb-2 bg-emerald-600/70 hover:bg-emerald-600 rounded-lg px-3 py-2 flex items-center justify-between text-left">
-                <span class="min-w-0 flex items-center gap-2"><i class="fa-solid fa-circle-user"></i><span id="topAccountEmail" class="truncate text-[11px] font-semibold">Chưa đăng nhập</span></span>
-                <span class="shrink-0 flex items-center gap-2">
-                    <span id="topAccountAction" class="px-2 py-1 rounded bg-white/15 text-[10px] font-extrabold">Đăng nhập</span>
-                    <span class="text-[10px] font-bold"><i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Cục bộ</span> <i class="fa-solid fa-chevron-right ml-1 opacity-70"></i></span>
-                </span>
-            </button>
+
+            <!-- Thanh trạng thái Tài khoản & Nút đổi nhanh -->
+            <div class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 flex items-center justify-between text-left border border-emerald-500/40">
+                <div onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 cursor-pointer flex-1">
+                    <i class="fa-solid fa-circle-user text-emerald-300 text-sm"></i>
+                    <span id="topAccountEmail" class="truncate text-xs font-semibold">Chưa đăng nhập</span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="syncNow()" class="bg-emerald-600 hover:bg-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold">
+                        <i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Cục bộ</span>
+                    </button>
+                    <button onclick="showLogin()" class="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[10px] font-bold" title="Đăng nhập / Đổi tài khoản">
+                        <i class="fa-solid fa-right-left mr-0.5"></i> Đổi TK
+                    </button>
+                </div>
+            </div>
+
             <!-- Tổng quan số dư -->
             <div class="bg-emerald-800/60 rounded-xl p-3 backdrop-blur-sm">
                 <p class="text-xs text-emerald-200">Tổng tài sản ròng (Net Worth)</p>
@@ -80,7 +102,6 @@
                         </select>
                     </div>
 
-                    <!-- Các input điều kiện lọc thời gian phụ -->
                     <div id="filterDateContainer" class="hidden flex items-center gap-2">
                         <span class="text-gray-500">Chọn ngày:</span>
                         <input type="date" id="selectedDateInput" onchange="renderTransactions()" class="border rounded p-1 text-xs">
@@ -132,7 +153,6 @@
                     <button onclick="openStockModal('TRADE')" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-right-left mr-1"></i> Mua/Bán Cổ Phiếu</button>
                 </div>
                 
-                <!-- Lịch sử nạp rút chứng khoán -->
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <h3 class="text-xs font-bold text-gray-700 mb-2"><i class="fa-solid fa-history mr-1"></i> Lịch sử Nạp / Rút tiền Chứng khoán</h3>
                     <div id="stockHistoryList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
@@ -157,7 +177,6 @@
                     <button onclick="openCryptoModal('TRADE')" class="flex-1 bg-orange-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-right-left mr-1"></i> Mua/Bán Coin</button>
                 </div>
 
-                <!-- Lịch sử nạp rút crypto -->
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <h3 class="text-xs font-bold text-gray-700 mb-2"><i class="fa-solid fa-history mr-1"></i> Lịch sử Nạp / Rút tiền Crypto</h3>
                     <div id="cryptoHistoryList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
@@ -209,21 +228,48 @@
             <i class="fa-solid fa-plus"></i>
         </button>
 
-        <!-- AUTH OVERLAY -->
+        <!-- AUTH OVERLAY (ĐĂNG NHẬP / ĐĂNG KÝ / ĐỒNG BỘ ĐA THIẾT BỊ) -->
         <div id="authOverlay" class="fixed inset-0 bg-gray-100 z-[100] hidden overflow-y-auto">
             <div class="min-h-screen max-w-md mx-auto bg-white flex flex-col justify-center p-6">
-                <div class="text-center mb-7">
+                <div class="text-center mb-6">
                     <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-700 text-white flex items-center justify-center text-3xl shadow-lg"><i class="fa-solid fa-wallet"></i></div>
-                    <h2 class="mt-4 text-xl font-extrabold text-gray-800">Sổ Thu Chi & Tài Chính</h2>
-                    <p class="text-xs text-gray-500 mt-1">Đăng nhập để đồng bộ dữ liệu giữa điện thoại và máy tính</p>
+                    <h2 class="mt-3 text-xl font-extrabold text-gray-800">Đăng Nhập & Đồng Bộ</h2>
+                    <p class="text-xs text-gray-500 mt-1">Sử dụng chung 1 tài khoản Email để tự động đồng bộ giữa Điện thoại và Máy tính</p>
                 </div>
-                <button onclick="signInWithGoogle()" class="w-full border border-gray-300 bg-white py-3 rounded-xl text-sm font-bold shadow-sm"><i class="fa-brands fa-google mr-2"></i> Tiếp tục với Google</button>
-                <div class="flex items-center gap-3 my-4 text-[11px] text-gray-400"><div class="h-px bg-gray-200 flex-1"></div>hoặc<div class="h-px bg-gray-200 flex-1"></div></div>
-                <label class="text-xs font-semibold text-gray-600 mb-1">Email</label>
-                <input id="authEmail" type="email" placeholder="tenban@gmail.com" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500">
-                <button onclick="sendMagicLink()" class="w-full mt-3 bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold shadow">Gửi liên kết đăng nhập</button>
-                <p id="authMessage" class="text-xs text-center mt-3 text-gray-500"></p>
-                <button onclick="continueOffline()" class="mt-5 text-xs text-gray-400 underline">Tiếp tục dùng cục bộ / ngoại tuyến</button>
+
+                <!-- Đăng nhập bằng Email + Mật khẩu (Ổn định nhất trên mọi máy) -->
+                <div class="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+                    <div>
+                        <label class="text-xs font-semibold text-gray-600 mb-1 block">Email của bạn</label>
+                        <input id="authEmail" type="email" placeholder="tenban@gmail.com" class="w-full border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-600 mb-1 block">Mật khẩu (ít nhất 6 ký tự)</label>
+                        <input id="authPassword" type="password" placeholder="••••••••" class="w-full border rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 pt-1">
+                        <button onclick="signInWithPassword()" class="bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold shadow">
+                            <i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng nhập
+                        </button>
+                        <button onclick="signUpWithPassword()" class="bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl text-xs font-bold shadow">
+                            <i class="fa-solid fa-user-plus mr-1"></i> Tạo TK Mới
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 my-4 text-[11px] text-gray-400"><div class="h-px bg-gray-200 flex-1"></div>hoặc dùng liên kết / Google<div class="h-px bg-gray-200 flex-1"></div></div>
+
+                <div class="space-y-2">
+                    <button onclick="sendMagicLink()" class="w-full border border-emerald-600 text-emerald-700 bg-emerald-50 py-2.5 rounded-xl text-xs font-bold">
+                        <i class="fa-solid fa-envelope mr-1"></i> Gửi Magic Link / OTP qua Email
+                    </button>
+                    <button onclick="signInWithGoogle()" class="w-full border border-gray-300 bg-white py-2.5 rounded-xl text-xs font-bold shadow-sm">
+                        <i class="fa-brands fa-google mr-1 text-rose-500"></i> Tiếp tục với Google
+                    </button>
+                </div>
+
+                <p id="authMessage" class="text-xs text-center mt-3 font-medium text-rose-600 min-h-[20px]"></p>
+                <button onclick="continueOffline()" class="mt-4 text-xs text-gray-500 underline text-center w-full py-2">Đóng & Tiếp tục dùng cục bộ trên máy này</button>
             </div>
         </div>
 
@@ -231,23 +277,31 @@
         <div id="accountPanel" class="fixed inset-0 bg-black/50 z-[90] hidden flex items-end sm:items-center justify-center">
             <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 text-xs">
                 <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-cloud mr-1"></i> Tài khoản & Đồng bộ</h3>
+                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-cloud mr-1"></i> Tài khoản & Đồng bộ Đám mây</h3>
                     <button onclick="closeAccountPanel()" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
                 </div>
-                <div class="space-y-2">
-                    <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500">Tài khoản:</span><br><strong id="accountEmail">Chưa đăng nhập</strong></div>
-                    <div class="bg-gray-50 rounded-lg p-3 flex justify-between"><span>Trạng thái</span><strong id="accountSyncStatus" class="text-emerald-600">Cục bộ</strong></div>
-                    <div class="bg-gray-50 rounded-lg p-3 flex justify-between gap-3"><span>Lần đồng bộ cuối</span><strong id="accountLastSync" class="text-right text-gray-700">Chưa có</strong></div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="pullCloudData(true); closeAccountPanel()" class="bg-sky-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-down mr-1"></i> Lấy dữ liệu Cloud</button>
-                        <button onclick="pushCloudData(); closeAccountPanel()" class="bg-emerald-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Đẩy lên Cloud</button>
+                <div class="space-y-2.5">
+                    <div class="bg-gray-50 rounded-lg p-3 border">
+                        <span class="text-gray-500">Tài khoản đang hoạt động:</span><br>
+                        <strong id="accountEmail" class="text-sm text-gray-800">Chưa đăng nhập</strong>
                     </div>
-                    <button onclick="syncNow()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ ngay</button>
-                    <button onclick="exportData()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-download mr-1"></i> Sao lưu JSON</button>
-                    <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2 rounded-lg font-bold">Đăng nhập</button>
-                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 py-2 rounded-lg font-bold hidden"><i class="fa-solid fa-user-gear mr-1"></i> Đổi tài khoản Google</button>
-                    <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-bold hidden"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
-                    <p class="text-[10px] text-gray-400">Dữ liệu vẫn được lưu cục bộ trên thiết bị. Khi đăng nhập, ứng dụng đồng bộ thêm một bản lên Supabase.</p>
+                    <div class="bg-gray-50 rounded-lg p-3 border flex justify-between items-center">
+                        <span>Trạng thái đám mây:</span>
+                        <strong id="accountSyncStatus" class="text-emerald-600">Cục bộ</strong>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="pullCloudData(); closeAccountPanel()" class="bg-sky-600 text-white py-2.5 rounded-lg font-bold shadow-sm"><i class="fa-solid fa-cloud-arrow-down mr-1"></i> Tải từ Cloud về</button>
+                        <button onclick="pushCloudData(); closeAccountPanel()" class="bg-emerald-600 text-white py-2.5 rounded-lg font-bold shadow-sm"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Đẩy lên Cloud</button>
+                    </div>
+                    <button onclick="syncNow()" class="w-full bg-indigo-600 text-white py-2.5 rounded-lg font-bold shadow-sm"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ 2 chiều ngay</button>
+                    <button onclick="exportData()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-download mr-1"></i> Sao lưu ra file JSON</button>
+                    
+                    <hr class="my-2">
+                    <!-- Hiển thị cố định các nút quản lý tài khoản để dễ thao tác -->
+                    <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2.5 rounded-lg font-bold"><i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng nhập tài khoản</button>
+                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 border border-amber-300 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-user-gear mr-1"></i> Đổi sang tài khoản khác</button>
+                    <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-rose-50 text-rose-700 border border-rose-200 py-2 rounded-lg font-bold"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
+                    <p class="text-[10px] text-gray-400 text-center pt-1">Dữ liệu luôn được lưu an toàn trên thiết bị và đồng bộ tự động lên Supabase khi bạn đăng nhập.</p>
                 </div>
             </div>
         </div>
@@ -461,8 +515,8 @@
                 TRANSFER: ['Chuyển khoản nội bộ']
             },
             transactions: [],
-            stocks: { cashBalance: 0, portfolio: [], history: [] }, // history: [{id, date, amount, type: 'DEPOSIT'/'WITHDRAW', note}]
-            crypto: { cashBalance: 0, portfolio: [], history: [] }, // history: [{id, date, amount, type: 'DEPOSIT'/'WITHDRAW', note}]
+            stocks: { cashBalance: 0, portfolio: [], history: [] },
+            crypto: { cashBalance: 0, portfolio: [], history: [] },
             debts: []
         };
 
@@ -488,35 +542,11 @@
         let supabaseClient = null;
         let currentUser = null;
         let syncTimer = null;
-        let cloudPollTimer = null;
         let offlineMode = false;
-        const APP_VERSION = 'finance-cloud-pwa-v3-2026.10.28';
-
-        function userKey(name) { return currentUser ? `${name}_${currentUser.id}` : name; }
-        function markLocalChanged() {
-            if(!currentUser) return;
-            localStorage.setItem(userKey('finance_dirty'), '1');
-            localStorage.setItem(userKey('finance_local_modified'), new Date().toISOString());
-        }
-        function clearLocalDirty() { if(currentUser) localStorage.removeItem(userKey('finance_dirty')); }
-        function formatSyncTime(iso) {
-            if(!iso) return 'Chưa có';
-            const d = new Date(iso);
-            if(Number.isNaN(d.getTime())) return 'Chưa có';
-            return d.toLocaleString('vi-VN', { hour12: false });
-        }
-        function refreshLastSyncUI() {
-            const el = document.getElementById('accountLastSync');
-            const value = currentUser ? localStorage.getItem(userKey('finance_last_sync')) : null;
-            if(el) el.innerText = formatSyncTime(value);
-        }
 
         function saveData() {
             localStorage.setItem('finance_db_v5', JSON.stringify(db));
-            if(currentUser) {
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-                markLocalChanged();
-            }
+            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
             updateAllUI();
             scheduleCloudSync();
         }
@@ -530,7 +560,6 @@
             const a = document.getElementById('accountSyncStatus');
             if(t) t.innerText = text;
             if(a) { a.innerText = text; a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'; }
-            refreshLastSyncUI();
         }
 
         function scheduleCloudSync() {
@@ -540,30 +569,12 @@
             syncTimer = setTimeout(pushCloudData, 700);
         }
 
-        function stopCloudPolling() {
-            if(cloudPollTimer) clearInterval(cloudPollTimer);
-            cloudPollTimer = null;
-        }
-
-        function startCloudPolling() {
-            stopCloudPolling();
-            if(!currentUser || !supabaseClient) return;
-            cloudPollTimer = setInterval(checkCloudUpdates, 15000);
-        }
-
-        async function checkCloudUpdates() {
-            if(!currentUser || !supabaseClient || !navigator.onLine) return;
-            if(localStorage.getItem(userKey('finance_dirty')) === '1') return;
-            const { data, error } = await supabaseClient.from('user_finance_data').select('updated_at').eq('user_id', currentUser.id).maybeSingle();
-            if(error || !data?.updated_at) return;
-            const lastSync = localStorage.getItem(userKey('finance_last_sync'));
-            if(!lastSync || new Date(data.updated_at) > new Date(lastSync)) {
-                await pullCloudData(false);
-            }
-        }
-
         async function pushCloudData() {
-            if(!currentUser || !supabaseClient) return;
+            if(!currentUser || !supabaseClient) {
+                alert("Bạn cần đăng nhập tài khoản trước khi đẩy dữ liệu lên Cloud!");
+                showLogin();
+                return;
+            }
             if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
             setSyncState('Đang đồng bộ…', false);
             const payload = {
@@ -572,36 +583,35 @@
                 updated_at: new Date().toISOString()
             };
             const { error } = await supabaseClient.from('user_finance_data').upsert(payload, { onConflict: 'user_id' });
-            if(error) { console.error(error); setSyncState('Lỗi đồng bộ', false); return; }
-            localStorage.setItem(userKey('finance_last_sync'), payload.updated_at);
+            if(error) {
+                console.error(error);
+                setSyncState('Lỗi đồng bộ', false);
+                alert("Lỗi đồng bộ lên Supabase: " + error.message + "\n(Hãy kiểm tra xem bạn đã chạy file setup.sql trong Supabase SQL Editor chưa)");
+                return;
+            }
             localStorage.setItem('finance_last_sync', payload.updated_at);
-            clearLocalDirty();
             setSyncState('Đã đồng bộ');
         }
 
-        async function pullCloudData(forceCloud = false) {
-            if(!currentUser || !supabaseClient) return;
-            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
+        async function pullCloudData() {
+            if(!currentUser || !supabaseClient) {
+                alert("Bạn cần đăng nhập tài khoản trước khi tải dữ liệu từ Cloud!");
+                showLogin();
+                return;
+            }
             setSyncState('Đang tải…', false);
             const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', currentUser.id).maybeSingle();
-            if(error) { console.error(error); setSyncState('Lỗi tải', false); return; }
-
-            const isDirty = localStorage.getItem(userKey('finance_dirty')) === '1';
-            const localModified = localStorage.getItem(userKey('finance_local_modified'));
-            const cloudTime = data?.updated_at || null;
-
+            if(error) {
+                console.error(error);
+                setSyncState('Lỗi tải', false);
+                alert("Lỗi tải dữ liệu từ Supabase: " + error.message);
+                return;
+            }
             if(data && data.data) {
-                // Nếu thiết bị này có thay đổi chưa gửi và mới hơn Cloud, ưu tiên gửi lên để không mất dữ liệu ngoại tuyến.
-                if(!forceCloud && isDirty && localModified && (!cloudTime || new Date(localModified) > new Date(cloudTime))) {
-                    await pushCloudData();
-                    return;
-                }
                 db = data.data;
                 localStorage.setItem('finance_db_v5', JSON.stringify(db));
                 localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-                localStorage.setItem(userKey('finance_last_sync'), cloudTime || new Date().toISOString());
-                localStorage.setItem('finance_last_sync', cloudTime || '');
-                clearLocalDirty();
+                localStorage.setItem('finance_last_sync', data.updated_at || '');
                 updateAllUI();
                 setSyncState('Đã đồng bộ');
             } else {
@@ -611,8 +621,8 @@
 
         async function syncNow() {
             if(!currentUser) { showLogin(); return; }
-            // Tự quyết định lấy Cloud hay đẩy dữ liệu cục bộ dựa trên dấu thời gian thay đổi.
-            await pullCloudData(false);
+            await pullCloudData();
+            await pushCloudData();
             closeAccountPanel();
         }
 
@@ -621,36 +631,97 @@
             refreshAccountUI();
         }
         function closeAccountPanel() { document.getElementById('accountPanel').classList.add('hidden'); }
+
         function refreshAccountUI() {
-            const email = currentUser?.email || 'Chưa đăng nhập';
+            const email = currentUser?.email || 'Chưa đăng nhập (Đang dùng cục bộ)';
             document.getElementById('accountEmail').innerText = email;
             const topEmail = document.getElementById('topAccountEmail');
-            const topAction = document.getElementById('topAccountAction');
-            if(topEmail) topEmail.innerText = email;
-            if(topAction) topAction.innerText = currentUser ? 'Đổi TK' : 'Đăng nhập';
+            if(topEmail) topEmail.innerText = currentUser?.email || 'Chưa đăng nhập';
             document.getElementById('logoutBtn').classList.toggle('hidden', !currentUser);
-            document.getElementById('switchAccountBtn').classList.toggle('hidden', !currentUser);
             document.getElementById('loginFromPanelBtn').classList.toggle('hidden', !!currentUser);
-            refreshLastSyncUI();
         }
-        function showLogin() { closeAccountPanel(); document.getElementById('authOverlay').classList.remove('hidden'); }
-        function continueOffline() { offlineMode = true; document.getElementById('authOverlay').classList.add('hidden'); setSyncState('Cục bộ', false); }
+
+        function showLogin() {
+            closeAccountPanel();
+            document.getElementById('authMessage').innerText = '';
+            document.getElementById('authOverlay').classList.remove('hidden');
+        }
+        function continueOffline() {
+            offlineMode = true;
+            document.getElementById('authOverlay').classList.add('hidden');
+            setSyncState('Cục bộ', false);
+        }
+
+        // Đăng nhập bằng Email + Mật khẩu
+        async function signInWithPassword() {
+            if(!supabaseClient) return showConfigError();
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const msg = document.getElementById('authMessage');
+            if(!email || !password) { msg.innerText = 'Vui lòng nhập đầy đủ Email và Mật khẩu.'; return; }
+            msg.className = "text-xs text-center mt-3 font-medium text-blue-600";
+            msg.innerText = 'Đang đăng nhập và tải dữ liệu...';
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if(error) {
+                msg.className = "text-xs text-center mt-3 font-medium text-rose-600";
+                msg.innerText = 'Lỗi đăng nhập: ' + error.message;
+            } else {
+                msg.className = "text-xs text-center mt-3 font-medium text-emerald-600";
+                msg.innerText = 'Đăng nhập thành công!';
+                document.getElementById('authOverlay').classList.add('hidden');
+            }
+        }
+
+        // Tạo tài khoản mới bằng Email + Mật khẩu
+        async function signUpWithPassword() {
+            if(!supabaseClient) return showConfigError();
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const msg = document.getElementById('authMessage');
+            if(!email || !password || password.length < 6) {
+                msg.innerText = 'Vui lòng nhập Email và Mật khẩu (tối thiểu 6 ký tự).';
+                return;
+            }
+            msg.className = "text-xs text-center mt-3 font-medium text-blue-600";
+            msg.innerText = 'Đang đăng ký tài khoản...';
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            if(error) {
+                msg.className = "text-xs text-center mt-3 font-medium text-rose-600";
+                msg.innerText = 'Lỗi đăng ký: ' + error.message;
+            } else {
+                msg.className = "text-xs text-center mt-3 font-medium text-emerald-600";
+                if(data.session) {
+                    msg.innerText = 'Đăng ký & Đăng nhập thành công!';
+                    setTimeout(() => document.getElementById('authOverlay').classList.add('hidden'), 800);
+                } else {
+                    msg.innerText = 'Đã tạo tài khoản! Hãy kiểm tra hộp thư Email để xác nhận (hoặc tắt Confirm Email trong Supabase Auth).';
+                }
+            }
+        }
 
         async function sendMagicLink() {
             if(!supabaseClient) return showConfigError();
             const email = document.getElementById('authEmail').value.trim();
             const msg = document.getElementById('authMessage');
             if(!email) { msg.innerText = 'Hãy nhập email.'; return; }
-            msg.innerText = 'Đang gửi…';
-            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+            msg.className = "text-xs text-center mt-3 font-medium text-blue-600";
+            msg.innerText = 'Đang gửi liên kết...';
+            const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
+            const { error } = await supabaseClient.auth.signInWithOtp({
+                email,
+                options: redirectUrl ? { emailRedirectTo: redirectUrl } : {}
+            });
+            msg.className = error ? "text-xs text-center mt-3 font-medium text-rose-600" : "text-xs text-center mt-3 font-medium text-emerald-600";
             msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
         }
 
-        async function signInWithGoogle(forceChooseAccount = false) {
+        async function signInWithGoogle() {
             if(!supabaseClient) return showConfigError();
-            const options = { redirectTo: window.location.origin };
-            if(forceChooseAccount) options.queryParams = { prompt: 'select_account' };
-            const { error } = await supabaseClient.auth.signInWithOAuth({ provider: 'google', options });
+            const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
+            const { error } = await supabaseClient.auth.signInWithOAuth({
+                provider: 'google',
+                options: redirectUrl ? { redirectTo: redirectUrl } : {}
+            });
             if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
         }
 
@@ -658,7 +729,6 @@
             if(currentUser) {
                 localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
             }
-            stopCloudPolling();
             if(supabaseClient) await supabaseClient.auth.signOut();
             currentUser = null;
             offlineMode = true;
@@ -673,21 +743,20 @@
 
         async function switchAccount() {
             document.getElementById('authMessage').innerText = '';
-            await signOutUser(false);
-            showLogin();
-            // Mở Google với bộ chọn tài khoản để tránh tự đăng nhập lại tài khoản cũ.
-            await signInWithGoogle(true);
+            if(currentUser) {
+                await signOutUser(true);
+            } else {
+                showLogin();
+            }
         }
 
         function showConfigError() {
-            document.getElementById('authMessage').innerText = 'Chưa cấu hình Supabase. Hãy điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong config.js.';
+            document.getElementById('authMessage').innerText = 'Chưa cấu hình Supabase. Hãy kiểm tra SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY.';
         }
 
         async function initCloud() {
             if(!cloudConfigured()) {
                 setSyncState('Chưa cấu hình', false);
-                showLogin();
-                showConfigError();
                 return;
             }
             supabaseClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
@@ -706,10 +775,7 @@
                 if(currentUser) {
                     localStorage.setItem('finance_last_user_id', currentUser.id);
                     document.getElementById('authOverlay').classList.add('hidden');
-                    startCloudPolling();
-                    setTimeout(() => pullCloudData(false), 0);
-                } else {
-                    stopCloudPolling();
+                    setTimeout(pullCloudData, 0);
                 }
             });
             refreshAccountUI();
@@ -718,10 +784,8 @@
                 if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
                 localStorage.setItem('finance_last_user_id', currentUser.id);
                 document.getElementById('authOverlay').classList.add('hidden');
-                startCloudPolling();
-                await pullCloudData(false);
-            } else if(!offlineMode) {
-                showLogin();
+                await pullCloudData();
+            } else {
                 setSyncState('Chưa đăng nhập', false);
             }
         }
@@ -1212,7 +1276,6 @@
             pnlEl.innerText = formatMoney(pnl);
             pnlEl.className = pnl >= 0 ? "font-bold text-emerald-600" : "font-bold text-rose-600";
 
-            // Render lịch sử nạp rút CK
             let histEl = document.getElementById('stockHistoryList');
             if(!db.stocks.history || db.stocks.history.length === 0) {
                 histEl.innerHTML = `<div class="text-gray-400 text-[11px] italic">Chưa có lịch sử nạp/rút tiền.</div>`;
@@ -1671,14 +1734,12 @@
             reader.readAsText(file);
         }
 
-        window.addEventListener('online', () => { if(currentUser) pullCloudData(false); });
+        window.addEventListener('online', () => { if(currentUser) pushCloudData(); });
         window.addEventListener('offline', () => setSyncState('Ngoại tuyến', false));
-        window.addEventListener('focus', () => { if(currentUser) checkCloudUpdates(); });
-        document.addEventListener('visibilitychange', () => { if(!document.hidden && currentUser) checkCloudUpdates(); });
         window.addEventListener('load', async () => {
             initApp();
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/service-worker.js').then(reg => reg.update()).catch(console.error);
+            if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+                navigator.serviceWorker.register('./service-worker.js').catch(console.error);
             }
             await initCloud();
         });
