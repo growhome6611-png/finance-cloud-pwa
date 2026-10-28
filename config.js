@@ -1,8 +1,6 @@
-// Google Drive sync configuration
-// Create OAuth Client ID: Google Cloud Console > Google Auth Platform > Clients > Web application.
-// Add your Vercel origin, e.g. https://financepwavercel.vercel.app, to Authorized JavaScript origins.
+// V15: Google OAuth credentials are NOT stored here.
+// Configure them securely in Vercel > Project > Settings > Environment Variables.
 window.APP_CONFIG = {
-  GOOGLE_CLIENT_ID: "14365016820-jig3usbp9i2c7kurmsr3e94jpfr6ufh5.apps.googleusercontent.com",
-  DRIVE_FOLDER_NAME: "FinancePWA",
-  DRIVE_FILE_NAME: "finance_data.json"
+  DRIVE_FOLDER_NAME: 'FinancePWA',
+  DRIVE_FILE_NAME: 'finance_data.json'
 };

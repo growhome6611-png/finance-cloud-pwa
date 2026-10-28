@@ -1,5 +1,5 @@
-// V10 cache
-const CACHE_NAME = 'finance-drive-pwa-v13';
+// V15 cache - OAuth redirect + Vercel serverless Drive API
+const CACHE_NAME = 'finance-drive-pwa-v15';
 const APP_SHELL = ['./', './index.html', './config.js'];
 
 self.addEventListener('install', event => {
@@ -17,10 +17,10 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const req = event.request;
-  if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  if (url.pathname.startsWith('/api/')) return; // Never cache OAuth or Drive API calls.
+  if (req.method !== 'GET') return;
 
-  // HTML/navigation and config must prefer the newest network version.
   if (req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/config.js')) {
     event.respondWith((async () => {
       try {

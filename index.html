@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Google Drive config -->
-    <script src="./config.js?v=20261028-drive-v13"></script>
+    <script src="./config.js?v=20261028-drive-v14"></script>
     <script>
       if (!window.APP_CONFIG) {
         window.APP_CONFIG = {
@@ -22,8 +22,8 @@
       }
     </script>
     <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
-    <meta name="app-version" content="finance-v13-google-drive">
-    <!-- Finance PWA V13: Google Drive sync, local-first -->
+    <meta name="app-version" content="finance-v14-google-drive">
+    <!-- Finance PWA V15: Google Drive sync via Vercel OAuth redirect -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -2028,14 +2028,13 @@
         let driveAccountId = '';
         let driveSyncing = false;
 
-        function driveConfigured() {
-            return !!(window.APP_CONFIG && APP_CONFIG.GOOGLE_CLIENT_ID && !APP_CONFIG.GOOGLE_CLIENT_ID.includes('PASTE_'));
-        }
+        // ===== V15: Google Drive OAuth Redirect via Vercel serverless API =====
+        let serverDriveConnected = false;
 
-        function cloudConfigured() { return driveConfigured(); }
+        function cloudConfigured() { return true; }
 
         function driveAccountKey() {
-            const id = driveAccountEmail || driveAccountId || 'offline';
+            const id = driveAccountEmail || 'offline';
             return 'finance_drive_db_' + id.toLowerCase().replace(/[^a-z0-9@._-]/g, '_');
         }
 
@@ -2059,18 +2058,18 @@
 
         function scheduleCloudSync() {
             clearTimeout(syncTimer);
-            if(!driveAccessToken || Date.now() >= driveTokenExpiresAt - 60000) {
+            if(!serverDriveConnected) {
                 setSyncState(driveAccountEmail ? 'Cần kết nối lại' : 'Cục bộ', false);
                 return;
             }
             setSyncState('Đang chờ…', false);
-            syncTimer = setTimeout(() => pushCloudData(false), 900);
+            syncTimer = setTimeout(() => pushCloudData(false), 1000);
         }
 
         function refreshAccountUI() {
-            const loggedIn = !!driveAccessToken && !!driveAccountEmail;
+            const loggedIn = !!serverDriveConnected && !!driveAccountEmail;
             const email = driveAccountEmail || 'Chưa kết nối Google Drive';
-            currentUser = loggedIn ? { id: driveAccountId || driveAccountEmail, email: driveAccountEmail } : null;
+            currentUser = loggedIn ? { id: driveAccountEmail, email: driveAccountEmail } : null;
             const accountEmail = document.getElementById('accountEmail');
             const topEmail = document.getElementById('topAccountEmail');
             if(accountEmail) accountEmail.innerText = email;
@@ -2082,8 +2081,7 @@
                     ? 'text-[10px] font-bold bg-emerald-500 px-2 py-0.5 rounded'
                     : 'text-[10px] font-bold bg-amber-500 px-2 py-0.5 rounded';
             }
-            const ids = ['topSyncBtn','topSwitchBtn','topLogoutBtn'];
-            ids.forEach(id => document.getElementById(id)?.classList.toggle('hidden', !loggedIn));
+            ['topSyncBtn','topSwitchBtn','topLogoutBtn'].forEach(id => document.getElementById(id)?.classList.toggle('hidden', !loggedIn));
             document.getElementById('topLoginBtn')?.classList.toggle('hidden', loggedIn);
             document.getElementById('logoutBtn')?.classList.toggle('hidden', !loggedIn);
             document.getElementById('loginFromPanelBtn')?.classList.toggle('hidden', loggedIn);
@@ -2091,15 +2089,13 @@
         }
 
         function showConfigError() {
-            const msg = document.getElementById('authMessage');
-            const text = 'Chưa cấu hình GOOGLE_CLIENT_ID trong config.js. Hãy tạo OAuth Client ID loại Web application trong Google Cloud và thêm domain Vercel vào Authorized JavaScript origins.';
-            if(msg) msg.innerText = text;
-            else alert(text);
+            alert('V15 cần 3 Environment Variables trên Vercel: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET và GOOGLE_REDIRECT_URI. Xem README_GOOGLE_DRIVE_V15.txt.');
         }
 
         function showLogin() {
             closeAccountPanel();
-            document.getElementById('authMessage').innerText = '';
+            const msg = document.getElementById('authMessage');
+            if(msg) msg.innerText = '';
             document.getElementById('authOverlay').classList.remove('hidden');
         }
 
@@ -2109,152 +2105,85 @@
             setSyncState('Cục bộ', false);
         }
 
-        function initDriveTokenClient() {
-            if(!driveConfigured()) return false;
-            if(!window.google?.accounts?.oauth2) return false;
-            if(driveTokenClient) return true;
-            driveTokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: APP_CONFIG.GOOGLE_CLIENT_ID,
-                scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
-                callback: () => {}
-            });
-            return true;
-        }
-
-        function requestDriveToken(forceChooser=false) {
-            return new Promise((resolve, reject) => {
-                if(!driveConfigured()) { showConfigError(); reject(new Error('Missing GOOGLE_CLIENT_ID')); return; }
-                if(!initDriveTokenClient()) { reject(new Error('Google Identity Services chưa tải xong')); return; }
-                driveTokenClient.callback = async (resp) => {
-                    if(resp.error) { reject(new Error(resp.error_description || resp.error)); return; }
-                    driveAccessToken = resp.access_token;
-                    driveTokenExpiresAt = Date.now() + (Number(resp.expires_in || 3600) * 1000);
-                    try {
-                        await loadDriveAccountInfo();
-                        resolve(true);
-                    } catch(e) { reject(e); }
-                };
-                const prompt = forceChooser ? 'select_account' : 'consent';
-                driveTokenClient.requestAccessToken({ prompt });
-            });
-        }
-
-        async function driveFetch(url, options={}) {
-            if(!driveAccessToken || Date.now() >= driveTokenExpiresAt - 30000) throw new Error('Phiên Google Drive đã hết hạn. Hãy kết nối lại.');
-            const headers = new Headers(options.headers || {});
-            headers.set('Authorization', 'Bearer ' + driveAccessToken);
-            const res = await fetch(url, { ...options, headers });
+        async function apiJson(url, options={}) {
+            const res = await fetch(url, { credentials:'include', ...options });
+            if(res.status === 401) {
+                serverDriveConnected = false;
+                driveAccountEmail = '';
+                refreshAccountUI();
+                throw new Error('Phiên Google đã hết hạn. Hãy kết nối lại.');
+            }
             if(!res.ok) {
                 const text = await res.text();
-                throw new Error('Google Drive API ' + res.status + ': ' + text.slice(0, 300));
+                let msg = text;
+                try { msg = JSON.parse(text).error || text; } catch(_) {}
+                throw new Error(msg || ('HTTP ' + res.status));
             }
-            return res;
+            if(res.status === 204) return null;
+            return await res.json();
         }
 
-        async function loadDriveAccountInfo() {
-            const res = await driveFetch('https://www.googleapis.com/drive/v3/about?fields=user');
-            const info = await res.json();
-            const newEmail = info?.user?.emailAddress || '';
-            const newId = info?.user?.permissionId || newEmail;
-            const changed = driveAccountEmail && newEmail && driveAccountEmail !== newEmail;
-            driveAccountEmail = newEmail;
-            driveAccountId = newId;
-            driveFolderId = null;
-            driveFileId = null;
-
-            const key = driveAccountKey();
-            const saved = localStorage.getItem(key);
-            if(saved) {
-                try { db = JSON.parse(saved); } catch(_) { db = freshDefaultDb(); }
-            } else if(!localStorage.getItem('finance_drive_first_migration_done')) {
-                // First Drive account: migrate the data currently visible on the device.
-                localStorage.setItem(key, JSON.stringify(db));
-                localStorage.setItem(driveUpdatedKey(), new Date().toISOString());
-                localStorage.setItem('finance_drive_first_migration_done', '1');
-            } else {
-                db = freshDefaultDb();
-                localStorage.setItem(key, JSON.stringify(db));
-                localStorage.setItem(driveUpdatedKey(), '1970-01-01T00:00:00.000Z');
-            }
-            localStorage.setItem('finance_db_v5', JSON.stringify(db));
-            localStorage.setItem('finance_drive_last_email', driveAccountEmail);
-            updateAllUI();
-            refreshAccountUI();
-            setSyncState('Đã kết nối Drive');
-        }
-
-        function escDriveQ(v) { return String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-
-        async function ensureDriveFolderAndFile() {
-            const folderName = APP_CONFIG.DRIVE_FOLDER_NAME || 'FinancePWA';
-            const fileName = APP_CONFIG.DRIVE_FILE_NAME || 'finance_data.json';
-            if(!driveFolderId) {
-                const q = `name='${escDriveQ(folderName)}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-                const r = await driveFetch('https://www.googleapis.com/drive/v3/files?spaces=drive&fields=files(id,name)&pageSize=10&q=' + encodeURIComponent(q));
-                const j = await r.json();
-                if(j.files?.length) driveFolderId = j.files[0].id;
-                else {
-                    const cr = await driveFetch('https://www.googleapis.com/drive/v3/files?fields=id,name', {
-                        method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({name:folderName, mimeType:'application/vnd.google-apps.folder'})
-                    });
-                    driveFolderId = (await cr.json()).id;
+        async function loadServerSession() {
+            try {
+                const s = await apiJson('/api/google-session');
+                serverDriveConnected = !!s?.connected;
+                driveAccountEmail = s?.email || '';
+                driveAccountId = driveAccountEmail;
+                if(serverDriveConnected && driveAccountEmail) {
+                    const key = driveAccountKey();
+                    const saved = localStorage.getItem(key);
+                    if(saved) {
+                        try { db = JSON.parse(saved); } catch(_) { db = freshDefaultDb(); }
+                    } else if(!localStorage.getItem('finance_drive_first_migration_done')) {
+                        localStorage.setItem(key, JSON.stringify(db));
+                        localStorage.setItem(driveUpdatedKey(), new Date().toISOString());
+                        localStorage.setItem('finance_drive_first_migration_done', '1');
+                    } else {
+                        db = freshDefaultDb();
+                        localStorage.setItem(key, JSON.stringify(db));
+                        localStorage.setItem(driveUpdatedKey(), '1970-01-01T00:00:00.000Z');
+                    }
+                    localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                    localStorage.setItem('finance_drive_last_email', driveAccountEmail);
+                    updateAllUI();
                 }
+                refreshAccountUI();
+                setSyncState(serverDriveConnected ? 'Đã kết nối Drive' : 'Cục bộ', serverDriveConnected);
+                return serverDriveConnected;
+            } catch(e) {
+                console.error(e);
+                serverDriveConnected = false;
+                driveAccountEmail = '';
+                refreshAccountUI();
+                setSyncState('Cục bộ', false);
+                return false;
             }
-            if(!driveFileId) {
-                const q = `name='${escDriveQ(fileName)}' and '${escDriveQ(driveFolderId)}' in parents and trashed=false`;
-                const r = await driveFetch('https://www.googleapis.com/drive/v3/files?spaces=drive&fields=files(id,name,modifiedTime)&pageSize=10&q=' + encodeURIComponent(q));
-                const j = await r.json();
-                if(j.files?.length) driveFileId = j.files[0].id;
-            }
-            return { folderId: driveFolderId, fileId: driveFileId };
         }
 
         async function getRemoteDrivePayload() {
-            await ensureDriveFolderAndFile();
-            if(!driveFileId) return null;
-            const r = await driveFetch('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(driveFileId) + '?alt=media');
-            const text = await r.text();
-            if(!text.trim()) return null;
-            return JSON.parse(text);
+            return await apiJson('/api/drive-data');
         }
 
         async function uploadRemoteDrivePayload(payload) {
-            await ensureDriveFolderAndFile();
-            const fileName = APP_CONFIG.DRIVE_FILE_NAME || 'finance_data.json';
-            const boundary = '-------financepwa-' + Date.now();
-            const metadata = { name:fileName, mimeType:'application/json' };
-            if(!driveFileId) metadata.parents = [driveFolderId];
-            const body = '--' + boundary + '\r\n' +
-                'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(metadata) + '\r\n' +
-                '--' + boundary + '\r\n' +
-                'Content-Type: application/json; charset=UTF-8\r\n\r\n' + JSON.stringify(payload) + '\r\n' +
-                '--' + boundary + '--';
-            const url = driveFileId
-                ? 'https://www.googleapis.com/upload/drive/v3/files/' + encodeURIComponent(driveFileId) + '?uploadType=multipart&fields=id,modifiedTime'
-                : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime';
-            const r = await driveFetch(url, {
-                method: driveFileId ? 'PATCH' : 'POST',
-                headers:{'Content-Type':'multipart/related; boundary=' + boundary},
-                body
+            return await apiJson('/api/drive-data', {
+                method:'PUT',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify(payload)
             });
-            const j = await r.json();
-            driveFileId = j.id || driveFileId;
-            return j;
         }
 
         async function pushCloudData(interactive=true) {
             if(driveSyncing) return false;
             if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return false; }
+            if(!serverDriveConnected) {
+                if(interactive) connectGoogleDrive(false);
+                return false;
+            }
             try {
-                if(!driveAccessToken || Date.now() >= driveTokenExpiresAt - 60000) {
-                    if(!interactive) { setSyncState('Cần kết nối lại', false); return false; }
-                    await requestDriveToken(false);
-                }
                 driveSyncing = true;
                 setSyncState('Đang đẩy lên Drive…', false);
                 const updatedAt = localStorage.getItem(driveUpdatedKey()) || new Date().toISOString();
-                const payload = { version:13, updatedAt, accountEmail:driveAccountEmail, data:db };
+                const payload = { version:15, updatedAt, accountEmail:driveAccountEmail, data:db };
                 await uploadRemoteDrivePayload(payload);
                 localStorage.setItem('finance_last_sync', new Date().toISOString());
                 setSyncState('Đã đồng bộ');
@@ -2270,11 +2199,11 @@
         async function pullCloudData(interactive=true) {
             if(driveSyncing) return false;
             if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return false; }
+            if(!serverDriveConnected) {
+                if(interactive) connectGoogleDrive(false);
+                return false;
+            }
             try {
-                if(!driveAccessToken || Date.now() >= driveTokenExpiresAt - 60000) {
-                    if(!interactive) { setSyncState('Cần kết nối lại', false); return false; }
-                    await requestDriveToken(false);
-                }
                 driveSyncing = true;
                 setSyncState('Đang tải từ Drive…', false);
                 const payload = await getRemoteDrivePayload();
@@ -2299,8 +2228,8 @@
 
         async function syncNow() {
             if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
+            if(!serverDriveConnected) { connectGoogleDrive(false); return; }
             try {
-                if(!driveAccessToken || Date.now() >= driveTokenExpiresAt - 60000) await requestDriveToken(false);
                 setSyncState('Đang so sánh…', false);
                 const remote = await getRemoteDrivePayload();
                 const localTs = Date.parse(localStorage.getItem(driveUpdatedKey()) || '1970-01-01') || 0;
@@ -2325,53 +2254,31 @@
             }
         }
 
-        async function connectGoogleDrive(forceChooser=false) {
-            const msg = document.getElementById('authMessage');
-            if(msg) msg.innerText = '';
-            try {
-                await requestDriveToken(forceChooser);
-                document.getElementById('authOverlay')?.classList.add('hidden');
-                await syncNow();
-            } catch(e) {
-                if(msg) msg.innerText = e.message;
-                else alert(e.message);
-            }
+        function connectGoogleDrive(forceChooser=false) {
+            const target = forceChooser ? '/api/google-login?switch=1' : '/api/google-login';
+            window.location.assign(target);
         }
 
-        async function signInWithGoogle() { return connectGoogleDrive(false); }
+        async function signInWithGoogle() { connectGoogleDrive(false); }
 
         async function switchGoogleAccount() {
             if(driveAccountEmail) {
                 localStorage.setItem(driveAccountKey(), JSON.stringify(db));
                 localStorage.setItem('finance_db_v5', JSON.stringify(db));
             }
-            driveAccessToken = null;
-            driveTokenExpiresAt = 0;
-            driveFolderId = null;
-            driveFileId = null;
-            driveAccountEmail = '';
-            driveAccountId = '';
-            currentUser = null;
-            refreshAccountUI();
-            setSyncState('Đang chọn Gmail…', false);
-            await connectGoogleDrive(true);
+            setSyncState('Đang chuyển Gmail…', false);
+            window.location.assign('/api/google-login?switch=1');
         }
 
         async function switchAccount() { return switchGoogleAccount(); }
 
         async function signOutUser(showLoginAfter=true) {
             if(driveAccountEmail) localStorage.setItem(driveAccountKey(), JSON.stringify(db));
-            const oldToken = driveAccessToken;
-            driveAccessToken = null;
-            driveTokenExpiresAt = 0;
-            driveFolderId = null;
-            driveFileId = null;
+            try { await fetch('/api/google-logout', { method:'POST', credentials:'include' }); } catch(_) {}
+            serverDriveConnected = false;
             driveAccountEmail = '';
             driveAccountId = '';
             currentUser = null;
-            if(oldToken && window.google?.accounts?.oauth2?.revoke) {
-                try { google.accounts.oauth2.revoke(oldToken, () => {}); } catch(_) {}
-            }
             refreshAccountUI();
             setSyncState('Cục bộ', false);
             closeAccountPanel();
@@ -2379,19 +2286,23 @@
         }
 
         async function initCloud() {
-            // V13 deliberately does not reuse old Supabase sessions.
             currentUser = null;
+            serverDriveConnected = false;
             driveAccountEmail = '';
             driveAccountId = '';
             refreshAccountUI();
-            setSyncState('Cục bộ', false);
+            const ok = await loadServerSession();
+            if(ok) {
+                document.getElementById('authOverlay')?.classList.add('hidden');
+                try { await syncNow(); } catch(_) {}
+            }
         }
         window.addEventListener('online', () => { if(driveAccessToken) pushCloudData(false); });
         window.addEventListener('offline', () => setSyncState('Ngoại tuyến', false));
         window.addEventListener('load', async () => {
             initApp();
             if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-                navigator.serviceWorker.register('./service-worker.js?v=20261028-drive-v13').then(r => r.update()).catch(console.error);
+                navigator.serviceWorker.register('./service-worker.js?v=20261028-drive-v15').then(r => r.update()).catch(console.error);
             }
             await initCloud();
         });
