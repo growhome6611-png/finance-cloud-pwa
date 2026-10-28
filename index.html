@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#047857">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Sổ Thu Chi">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config.js"></script>
+    <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+      body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased text-gray-800">
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg flex flex-col relative pb-20">
+        <!-- Header -->
+        <header class="bg-emerald-700 text-white p-4 sticky top-0 z-20 shadow">
+            <div class="flex justify-between items-center mb-2">
+                <h1 class="text-base font-bold flex items-center gap-1.5"><i class="fa-solid fa-wallet"></i> Sổ Thu Chi & Tài Chính</h1>
+                <div class="flex gap-2 items-center">
+                    <button id="syncBadge" onclick="openAccountPanel()" title="Tài khoản & đồng bộ" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-cloud"></i> <span id="syncText">Cục bộ</span></button>
+                    <button onclick="exportData()" title="Xuất dữ liệu" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs"><i class="fa-solid fa-download"></i></button>
+                    <button onclick="document.getElementById('importFile').click()" title="Nhập dữ liệu" class="bg-emerald-600 hover:bg-emerald-500 px-2.5 py-1 rounded text-xs"><i class="fa-solid fa-upload"></i></button>
+                    <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+                </div>
+            </div>
+            <!-- Tổng quan số dư -->
+            <div class="bg-emerald-800/60 rounded-xl p-3 backdrop-blur-sm">
+                <p class="text-xs text-emerald-200">Tổng tài sản ròng (Net Worth)</p>
+                <h2 id="totalNetWorth" class="text-2xl font-extrabold tracking-tight">0 đ</h2>
+                <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-emerald-600/50 text-xs">
+                    <div><span class="text-emerald-300">Tiền mặt/Bank:</span> <span id="summaryLiquid" class="font-bold">0 đ</span></div>
+                    <div><span class="text-emerald-300">Đầu tư (CK+Crypto):</span> <span id="summaryInvest" class="font-bold">0 đ</span></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mt-1 text-xs">
+                    <div><span class="text-emerald-300">Cho vay (+):</span> <span id="summaryLoan" class="font-bold">0 đ</span></div>
+                    <div><span class="text-emerald-300">Nợ phải trả (-):</span> <span id="summaryDebt" class="font-bold text-rose-300">0 đ</span></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="flex bg-white border-b border-gray-200 overflow-x-auto text-xs font-semibold sticky top-[140px] z-10 shadow-sm">
+            <button onclick="switchTab('statement')" id="nav-statement" class="flex-1 py-3 px-2 text-center border-b-2 border-emerald-600 text-emerald-700 whitespace-nowrap"><i class="fa-solid fa-file-invoice-dollar mr-1"></i> Sao Kê</button>
+            <button onclick="switchTab('stocks')" id="nav-stocks" class="flex-1 py-3 px-2 text-center border-b-2 border-transparent text-gray-500 whitespace-nowrap"><i class="fa-solid fa-chart-line mr-1"></i> Cổ Phiếu</button>
+            <button onclick="switchTab('crypto')" id="nav-crypto" class="flex-1 py-3 px-2 text-center border-b-2 border-transparent text-gray-500 whitespace-nowrap"><i class="fa-solid fa-coins mr-1"></i> Crypto</button>
+            <button onclick="switchTab('debts')" id="nav-debts" class="flex-1 py-3 px-2 text-center border-b-2 border-transparent text-gray-500 whitespace-nowrap"><i class="fa-solid fa-hand-holding-dollar mr-1"></i> Nợ / Vay</button>
+            <button onclick="switchTab('analytics')" id="nav-analytics" class="flex-1 py-3 px-2 text-center border-b-2 border-transparent text-gray-500 whitespace-nowrap"><i class="fa-solid fa-chart-pie mr-1"></i> Thống Kê</button>
+        </nav>
+
+        <!-- Main Content Container -->
+        <main class="flex-1 p-3 overflow-y-auto">
+            <!-- TAB 1: SAO KÊ THU CHI -->
+            <section id="tab-statement" class="space-y-3">
+                <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-200 text-xs space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-gray-700">Bộ lọc thời gian</span>
+                        <select id="statementTimeFilter" onchange="handleTimeFilterChange()" class="bg-white border rounded p-1 text-xs font-medium">
+                            <option value="ALL">Toàn bộ thời gian</option>
+                            <option value="WEEK">Tuần này</option>
+                            <option value="MONTH" selected>Tháng này</option>
+                            <option value="YEAR">Năm nay</option>
+                            <option value="SPECIFIC_DATE">Chọn ngày cụ thể</option>
+                            <option value="SPECIFIC_MONTH">Chọn tháng cụ thể</option>
+                            <option value="CUSTOM_YEAR">Chọn năm cụ thể</option>
+                        </select>
+                    </div>
+
+                    <!-- Các input điều kiện lọc thời gian phụ -->
+                    <div id="filterDateContainer" class="hidden flex items-center gap-2">
+                        <span class="text-gray-500">Chọn ngày:</span>
+                        <input type="date" id="selectedDateInput" onchange="renderTransactions()" class="border rounded p-1 text-xs">
+                    </div>
+                    <div id="filterMonthContainer" class="hidden flex items-center gap-2">
+                        <span class="text-gray-500">Chọn tháng:</span>
+                        <input type="month" id="selectedMonthInput" onchange="renderTransactions()" class="border rounded p-1 text-xs">
+                    </div>
+                    <div id="filterYearContainer" class="hidden flex items-center gap-2">
+                        <span class="text-gray-500">Chọn năm:</span>
+                        <input type="number" id="selectedYearInput" value="2026" onchange="renderTransactions()" class="border rounded p-1 w-20 text-xs">
+                    </div>
+
+                    <div class="flex justify-between items-center pt-1 border-t">
+                        <div>
+                            <span class="text-gray-500">Thu:</span> <span id="filteredIncome" class="text-emerald-600 font-bold">0 đ</span> | 
+                            <span class="text-gray-500">Chi:</span> <span id="filteredExpense" class="text-rose-600 font-bold">0 đ</span><br>
+                            <span class="text-gray-500">Còn lại:</span> <span id="filteredNet" class="font-bold text-blue-600">0 đ</span>
+                        </div>
+                        <select id="filterAccount" onchange="renderTransactions()" class="bg-white border rounded p-1 text-xs font-medium">
+                            <option value="ALL">Tất cả tài khoản</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Biểu đồ thu chi -->
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-600 mb-1 text-center">Tỷ trọng Thu - Chi - Còn lại</h3>
+                    <div class="w-full h-40 flex justify-center"><canvas id="statementPieChart"></canvas></div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="openTxModal()" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-plus mr-1"></i> Thêm Thu/Chi</button>
+                    <button onclick="openTransferModal()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-right-left mr-1"></i> Chuyển Khoản Nội Bộ</button>
+                </div>
+                <div class="text-[11px] text-gray-400 italic text-center">* Chạm vào giao dịch bất kỳ để chỉnh sửa</div>
+                <div id="transactionList" class="space-y-2"></div>
+            </section>
+
+            <!-- TAB 2: QUẢN LÝ CỔ PHIẾU -->
+            <section id="tab-stocks" class="space-y-3 hidden">
+                <div class="bg-blue-50 border border-blue-200 p-3 rounded-lg text-xs">
+                    <div class="flex justify-between mb-1"><span>Tiền mặt CK:</span> <strong id="stockCashBalance">0 đ</strong></div>
+                    <div class="flex justify-between mb-1"><span>Giá trị thị trường:</span> <strong id="stockMarketValue" class="text-blue-600">0 đ</strong></div>
+                    <div class="flex justify-between font-bold text-sm border-t pt-1"><span>Lãi / Lỗ (P&L):</span> <span id="stockProfitLoss" class="text-emerald-600">0 đ</span></div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openStockModal('DEPOSIT')" class="flex-1 bg-blue-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-plus-circle mr-1"></i> Nạp/Rút Tiền CK</button>
+                    <button onclick="openStockModal('TRADE')" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-right-left mr-1"></i> Mua/Bán Cổ Phiếu</button>
+                </div>
+                
+                <!-- Lịch sử nạp rút chứng khoán -->
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-700 mb-2"><i class="fa-solid fa-history mr-1"></i> Lịch sử Nạp / Rút tiền Chứng khoán</h3>
+                    <div id="stockHistoryList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <div class="flex justify-between items-center mt-2">
+                    <h3 class="font-bold text-sm text-gray-700">Danh mục cổ phiếu</h3>
+                    <span class="text-[11px] text-gray-400 italic">* Chạm vào mã để sửa</span>
+                </div>
+                <div id="stockHoldingList" class="space-y-2"></div>
+            </section>
+
+            <!-- TAB 3: VÍ TIỀN ĐIỆN TỬ (CRYPTO) -->
+            <section id="tab-crypto" class="space-y-3 hidden">
+                <div class="bg-amber-50 border border-amber-200 p-3 rounded-lg text-xs">
+                    <div class="flex justify-between mb-1"><span>Tiền mặt/USDT ví:</span> <strong id="cryptoCashBalance">0 đ</strong></div>
+                    <div class="flex justify-between mb-1"><span>Giá trị Crypto hiện tại:</span> <strong id="cryptoMarketValue" class="text-amber-600">0 đ</strong></div>
+                    <div class="flex justify-between font-bold text-sm border-t pt-1"><span>Lãi / Lỗ Crypto:</span> <span id="cryptoProfitLoss" class="text-emerald-600">0 đ</span></div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="openCryptoModal('DEPOSIT')" class="flex-1 bg-amber-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-plus-circle mr-1"></i> Nạp/Rút Tiền Ví</button>
+                    <button onclick="openCryptoModal('TRADE')" class="flex-1 bg-orange-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-right-left mr-1"></i> Mua/Bán Coin</button>
+                </div>
+
+                <!-- Lịch sử nạp rút crypto -->
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-700 mb-2"><i class="fa-solid fa-history mr-1"></i> Lịch sử Nạp / Rút tiền Crypto</h3>
+                    <div id="cryptoHistoryList" class="space-y-1.5 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <div class="flex justify-between items-center mt-2">
+                    <h3 class="font-bold text-sm text-gray-700">Danh mục Coin</h3>
+                    <span class="text-[11px] text-gray-400 italic">* Chạm để sửa</span>
+                </div>
+                <div id="cryptoHoldingList" class="space-y-2"></div>
+            </section>
+
+            <!-- TAB 4: NỢ & CHO VAY -->
+            <section id="tab-debts" class="space-y-3 hidden">
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-rose-50 border border-rose-200 p-2.5 rounded-lg text-xs">
+                        <span class="text-rose-600 font-semibold block">Phải trả (Nợ):</span>
+                        <h4 id="totalDebtAmount" class="text-sm font-extrabold text-rose-700 mt-0.5">0 đ</h4>
+                    </div>
+                    <div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-xs">
+                        <span class="text-emerald-600 font-semibold block">Phải thu (Cho vay):</span>
+                        <h4 id="totalLoanAmount" class="text-sm font-extrabold text-emerald-700 mt-0.5">0 đ</h4>
+                    </div>
+                </div>
+                <button onclick="openDebtModal()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-xs font-bold shadow"><i class="fa-solid fa-user-plus mr-1"></i> Thêm Khoản Nợ / Cho Vay</button>
+                <div class="text-[11px] text-gray-400 italic text-center">* Chạm vào mục nợ để chỉnh sửa</div>
+                <div id="debtList" class="space-y-2"></div>
+            </section>
+
+            <!-- TAB 5: THỐNG KÊ BIỂU ĐỒ -->
+            <section id="tab-analytics" class="space-y-4 hidden">
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-600 mb-2 text-center">Biến động Tài sản Ròng (Net Worth)</h3>
+                    <div class="w-full h-48 flex justify-center"><canvas id="netWorthChart"></canvas></div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-600 mb-2 text-center">Phân bổ Cơ cấu Tài sản Hiện tại</h3>
+                    <div class="w-full h-48 flex justify-center"><canvas id="assetAllocationChart"></canvas></div>
+                </div>
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 class="text-xs font-bold text-gray-600 mb-2 text-center">Tỷ trọng Khoản Chi Tiêu</h3>
+                    <div class="w-full h-48 flex justify-center"><canvas id="expenseChart"></canvas></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Floating Action Button -->
+        <button onclick="openTxModal()" class="fixed bottom-6 right-6 bg-emerald-600 hover:bg-emerald-700 text-white w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-xl z-35 transition-transform active:scale-95">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+
+        <!-- AUTH OVERLAY -->
+        <div id="authOverlay" class="fixed inset-0 bg-gray-100 z-[100] hidden overflow-y-auto">
+            <div class="min-h-screen max-w-md mx-auto bg-white flex flex-col justify-center p-6">
+                <div class="text-center mb-7">
+                    <div class="w-16 h-16 mx-auto rounded-2xl bg-emerald-700 text-white flex items-center justify-center text-3xl shadow-lg"><i class="fa-solid fa-wallet"></i></div>
+                    <h2 class="mt-4 text-xl font-extrabold text-gray-800">Sổ Thu Chi & Tài Chính</h2>
+                    <p class="text-xs text-gray-500 mt-1">Đăng nhập để đồng bộ dữ liệu giữa điện thoại và máy tính</p>
+                </div>
+                <button onclick="signInWithGoogle()" class="w-full border border-gray-300 bg-white py-3 rounded-xl text-sm font-bold shadow-sm"><i class="fa-brands fa-google mr-2"></i> Tiếp tục với Google</button>
+                <div class="flex items-center gap-3 my-4 text-[11px] text-gray-400"><div class="h-px bg-gray-200 flex-1"></div>hoặc<div class="h-px bg-gray-200 flex-1"></div></div>
+                <label class="text-xs font-semibold text-gray-600 mb-1">Email</label>
+                <input id="authEmail" type="email" placeholder="tenban@gmail.com" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500">
+                <button onclick="sendMagicLink()" class="w-full mt-3 bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold shadow">Gửi liên kết đăng nhập</button>
+                <p id="authMessage" class="text-xs text-center mt-3 text-gray-500"></p>
+                <button onclick="continueOffline()" class="mt-5 text-xs text-gray-400 underline">Tiếp tục dùng cục bộ / ngoại tuyến</button>
+            </div>
+        </div>
+
+        <!-- ACCOUNT / SYNC PANEL -->
+        <div id="accountPanel" class="fixed inset-0 bg-black/50 z-[90] hidden flex items-end sm:items-center justify-center">
+            <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 text-xs">
+                <div class="flex justify-between items-center border-b pb-2 mb-3">
+                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-cloud mr-1"></i> Tài khoản & Đồng bộ</h3>
+                    <button onclick="closeAccountPanel()" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <div class="space-y-2">
+                    <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500">Tài khoản:</span><br><strong id="accountEmail">Chưa đăng nhập</strong></div>
+                    <div class="bg-gray-50 rounded-lg p-3 flex justify-between"><span>Trạng thái</span><strong id="accountSyncStatus" class="text-emerald-600">Cục bộ</strong></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="syncNow()" class="bg-emerald-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ ngay</button>
+                        <button onclick="exportData()" class="bg-blue-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-download mr-1"></i> Sao lưu JSON</button>
+                    </div>
+                    <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2 rounded-lg font-bold">Đăng nhập</button>
+                    <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-bold hidden">Đăng xuất</button>
+                    <p class="text-[10px] text-gray-400">Dữ liệu vẫn được lưu cục bộ trên thiết bị. Khi đăng nhập, ứng dụng đồng bộ thêm một bản lên Supabase.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL THÊM / SỬA GIAO DỊCH THU CHI -->
+        <div id="txModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b">
+                    <h3 id="txModalTitle" class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-pen-to-square mr-1"></i> Thêm Giao Dịch Thu Chi</h3>
+                    <button onclick="closeTxModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+                <form id="txForm" onsubmit="saveTransaction(event)" class="space-y-3 text-xs">
+                    <input type="hidden" id="editTxId">
+                    <div class="flex bg-gray-100 p-1 rounded-lg">
+                        <button type="button" onclick="setTxType('EXPENSE')" id="btnTypeExpense" class="flex-1 py-1.5 rounded-md font-bold bg-white text-rose-600 shadow-sm">Khoản Chi</button>
+                        <button type="button" onclick="setTxType('INCOME')" id="btnTypeIncome" class="flex-1 py-1.5 rounded-md font-bold text-gray-500">Khoản Thu</button>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-600 mb-1">Số tiền (VNĐ) *</label>
+                        <input type="text" id="txAmount" required placeholder="Nhập số tiền..." oninput="formatCurrencyInput(this)" class="w-full border rounded-lg p-2.5 font-bold text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-600 mb-1">Thời gian *</label>
+                        <input type="datetime-local" id="txDate" required class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-semibold text-gray-600">Tài khoản *</label>
+                            <button type="button" onclick="addNewAccountPrompt()" class="text-emerald-600 font-bold hover:underline">+ Thêm TK</button>
+                        </div>
+                        <select id="txAccount" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"></select>
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="font-semibold text-gray-600">Danh mục *</label>
+                            <button type="button" onclick="addNewCategoryPrompt()" class="text-emerald-600 font-bold hover:underline">+ Thêm DM</button>
+                        </div>
+                        <select id="txCategory" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none"></select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-gray-600 mb-1">Nội dung / Ghi chú</label>
+                        <input type="text" id="txNote" placeholder="Ví dụ: Ăn trưa, nhận lương..." class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" onclick="closeTxModal()" class="flex-1 bg-gray-200 text-gray-700 py-2.5 rounded-lg font-bold">Hủy</button>
+                        <button type="submit" class="flex-1 bg-emerald-600 text-white py-2.5 rounded-lg font-bold shadow">Lưu giao dịch</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL CHUYỂN KHOẢN NỘI BỘ -->
+        <div id="transferModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl p-4 text-xs">
+                <h3 class="font-bold text-sm text-blue-700 mb-3"><i class="fa-solid fa-right-left mr-1"></i> Chuyển Khoản Nội Bộ</h3>
+                <form id="transferForm" onsubmit="saveTransfer(event)" class="space-y-3">
+                    <div>
+                        <label class="block font-semibold mb-1">Số tiền chuyển (VNĐ) *</label>
+                        <input type="text" id="trfAmount" required placeholder="Nhập số tiền..." oninput="formatCurrencyInput(this)" class="w-full border rounded p-2.5 font-bold text-sm">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Từ tài khoản nguồn *</label>
+                        <select id="trfFromAccount" class="w-full border rounded p-2"></select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Đến tài khoản nhận *</label>
+                        <select id="trfToAccount" class="w-full border rounded p-2"></select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Thời gian *</label>
+                        <input type="datetime-local" id="trfDate" required class="w-full border rounded p-2">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Ghi chú</label>
+                        <input type="text" id="trfNote" placeholder="VD: Chuyển tiền mua chứng khoán..." class="w-full border rounded p-2">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" onclick="closeTransferModal()" class="flex-1 bg-gray-200 py-2 rounded font-bold">Hủy</button>
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded font-bold">Xác nhận chuyển</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL CỔ PHIẾU -->
+        <div id="stockModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl p-4 text-xs">
+                <h3 id="stockModalTitle" class="font-bold text-sm text-blue-700 mb-3">Quản lý Chứng Khoán</h3>
+                <form id="stockForm" onsubmit="saveStockAction(event)" class="space-y-3">
+                    <input type="hidden" id="stockActionType">
+                    <div id="stockFieldSymbol">
+                        <label class="block font-semibold mb-1">Mã cổ phiếu</label>
+                        <input type="text" id="stockSymbol" placeholder="VD: HPG, VCB..." class="w-full border rounded p-2 uppercase font-bold">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label id="stockLabelQty" class="block font-semibold mb-1">Số lượng</label>
+                            <input type="number" id="stockQty" placeholder="0" class="w-full border rounded p-2">
+                        </div>
+                        <div>
+                            <label id="stockLabelPrice" class="block font-semibold mb-1">Giá giao dịch (VNĐ)</label>
+                            <input type="number" id="stockPrice" placeholder="0" class="w-full border rounded p-2">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Giá thị trường hiện tại</label>
+                        <input type="number" id="stockCurrentMarketPrice" placeholder="Giá hiện tại" class="w-full border rounded p-2">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold mb-1">Mốc thời gian mua</label>
+                            <input type="date" id="stockBuyDate" class="w-full border rounded p-2">
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Thời điểm cập nhật</label>
+                            <input type="date" id="stockUpdateDate" class="w-full border rounded p-2">
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" onclick="closeStockModal()" class="flex-1 bg-gray-200 py-2 rounded font-bold">Hủy</button>
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded font-bold">Xác nhận</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL CRYPTO -->
+        <div id="cryptoModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl p-4 text-xs">
+                <h3 id="cryptoModalTitle" class="font-bold text-sm text-amber-700 mb-3">Quản lý Crypto</h3>
+                <form id="cryptoForm" onsubmit="saveCryptoAction(event)" class="space-y-3">
+                    <input type="hidden" id="cryptoActionType">
+                    <div id="cryptoFieldSymbol">
+                        <label class="block font-semibold mb-1">Mã Coin</label>
+                        <input type="text" id="cryptoSymbol" placeholder="VD: BTC, ETH..." class="w-full border rounded p-2 uppercase font-bold">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label id="cryptoLabelQty" class="block font-semibold mb-1">Số lượng Coin</label>
+                            <input type="number" step="any" id="cryptoQty" placeholder="0" class="w-full border rounded p-2">
+                        </div>
+                        <div>
+                            <label id="cryptoLabelPrice" class="block font-semibold mb-1">Giá mua (VNĐ)</label>
+                            <input type="number" id="cryptoPrice" placeholder="0" class="w-full border rounded p-2">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Giá thị trường hiện tại (VNĐ)</label>
+                        <input type="number" id="cryptoCurrentMarketPrice" placeholder="Giá hiện tại" class="w-full border rounded p-2">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-semibold mb-1">Mốc thời gian mua</label>
+                            <input type="date" id="cryptoBuyDate" class="w-full border rounded p-2">
+                        </div>
+                        <div>
+                            <label class="block font-semibold mb-1">Thời điểm cập nhật</label>
+                            <input type="date" id="cryptoUpdateDate" class="w-full border rounded p-2">
+                        </div>
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" onclick="closeCryptoModal()" class="flex-1 bg-gray-200 py-2 rounded font-bold">Hủy</button>
+                        <button type="submit" class="flex-1 bg-amber-600 text-white py-2 rounded font-bold">Xác nhận</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL NỢ & CHO VAY -->
+        <div id="debtModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl p-4 text-xs">
+                <h3 id="debtModalTitle" class="font-bold text-sm text-indigo-700 mb-3">Thêm Khoản Nợ / Cho Vay</h3>
+                <form id="debtForm" onsubmit="saveDebtItem(event)" class="space-y-3">
+                    <input type="hidden" id="editDebtId">
+                    <div class="flex bg-gray-100 p-1 rounded">
+                        <button type="button" onclick="setDebtType('LENDING')" id="btnLending" class="flex-1 py-1 rounded font-bold bg-white text-emerald-600 shadow-sm">Cho Vay (Phải thu)</button>
+                        <button type="button" onclick="setDebtType('BORROWING')" id="btnBorrowing" class="flex-1 py-1 rounded font-bold text-gray-500">Đi Vay (Phải trả)</button>
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Tên người / Tổ chức</label>
+                        <input type="text" id="debtPerson" required placeholder="VD: Nguyễn Văn A..." class="w-full border rounded p-2">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Số tiền (VNĐ)</label>
+                        <input type="text" id="debtAmount" required oninput="formatCurrencyInput(this)" class="w-full border rounded p-2 font-bold">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Hạn trả</label>
+                        <input type="date" id="debtDueDate" class="w-full border rounded p-2">
+                    </div>
+                    <div>
+                        <label class="block font-semibold mb-1">Ghi chú</label>
+                        <input type="text" id="debtNote" placeholder="Lý do..." class="w-full border rounded p-2">
+                    </div>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" onclick="closeDebtModal()" class="flex-1 bg-gray-200 py-2 rounded font-bold">Hủy</button>
+                        <button type="submit" class="flex-1 bg-indigo-600 text-white py-2 rounded font-bold">Lưu lại</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let db = JSON.parse(localStorage.getItem('finance_db_v5')) || {
+            accounts: ['Tiền mặt', 'Techcombank', 'MB Bank', 'Ví MoMo', 'TK Chứng khoán', 'Ví Crypto'],
+            categories: {
+                EXPENSE: ['Ăn uống', 'Nhà ở', 'Di chuyển', 'Mua sắm', 'Hóa đơn & Tiện ích', 'Khác'],
+                INCOME: ['Lương & Thưởng', 'Đầu tư', 'Được tặng', 'Khác'],
+                TRANSFER: ['Chuyển khoản nội bộ']
+            },
+            transactions: [],
+            stocks: { cashBalance: 0, portfolio: [], history: [] }, // history: [{id, date, amount, type: 'DEPOSIT'/'WITHDRAW', note}]
+            crypto: { cashBalance: 0, portfolio: [], history: [] }, // history: [{id, date, amount, type: 'DEPOSIT'/'WITHDRAW', note}]
+            debts: []
+        };
+
+        if(!db.stocks.history) db.stocks.history = [];
+        if(!db.crypto.history) db.crypto.history = [];
+        if(!db.categories.TRANSFER) db.categories.TRANSFER = ['Chuyển khoản nội bộ'];
+
+        let currentTxType = 'EXPENSE';
+        let currentDebtType = 'LENDING';
+        let currentStockAction = 'DEPOSIT';
+        let currentCryptoAction = 'DEPOSIT';
+        let statementPieChartInstance = null;
+        let netWorthChartInstance = null;
+        let assetAllocationChartInstance = null;
+        let expenseChartInstance = null;
+
+        let supabaseClient = null;
+        let currentUser = null;
+        let syncTimer = null;
+        let offlineMode = false;
+
+        function saveData() {
+            localStorage.setItem('finance_db_v5', JSON.stringify(db));
+            updateAllUI();
+            scheduleCloudSync();
+        }
+
+        function cloudConfigured() {
+            return !!(window.APP_CONFIG && APP_CONFIG.SUPABASE_URL && APP_CONFIG.SUPABASE_PUBLISHABLE_KEY && !APP_CONFIG.SUPABASE_URL.includes('YOUR_'));
+        }
+
+        function setSyncState(text, ok=true) {
+            const t = document.getElementById('syncText');
+            const a = document.getElementById('accountSyncStatus');
+            if(t) t.innerText = text;
+            if(a) { a.innerText = text; a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'; }
+        }
+
+        function scheduleCloudSync() {
+            if(!currentUser || !supabaseClient) return;
+            clearTimeout(syncTimer);
+            setSyncState('Đang chờ…', false);
+            syncTimer = setTimeout(pushCloudData, 700);
+        }
+
+        async function pushCloudData() {
+            if(!currentUser || !supabaseClient) return;
+            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
+            setSyncState('Đang đồng bộ…', false);
+            const payload = {
+                user_id: currentUser.id,
+                data: db,
+                updated_at: new Date().toISOString()
+            };
+            const { error } = await supabaseClient.from('user_finance_data').upsert(payload, { onConflict: 'user_id' });
+            if(error) { console.error(error); setSyncState('Lỗi đồng bộ', false); return; }
+            localStorage.setItem('finance_last_sync', payload.updated_at);
+            setSyncState('Đã đồng bộ');
+        }
+
+        async function pullCloudData() {
+            if(!currentUser || !supabaseClient) return;
+            setSyncState('Đang tải…', false);
+            const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', currentUser.id).maybeSingle();
+            if(error) { console.error(error); setSyncState('Lỗi tải', false); return; }
+            if(data && data.data) {
+                db = data.data;
+                localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                localStorage.setItem('finance_last_sync', data.updated_at || '');
+                updateAllUI();
+                setSyncState('Đã đồng bộ');
+            } else {
+                await pushCloudData();
+            }
+        }
+
+        async function syncNow() {
+            if(!currentUser) { showLogin(); return; }
+            await pushCloudData();
+            closeAccountPanel();
+        }
+
+        function openAccountPanel() {
+            document.getElementById('accountPanel').classList.remove('hidden');
+            refreshAccountUI();
+        }
+        function closeAccountPanel() { document.getElementById('accountPanel').classList.add('hidden'); }
+        function refreshAccountUI() {
+            const email = currentUser?.email || 'Chưa đăng nhập';
+            document.getElementById('accountEmail').innerText = email;
+            document.getElementById('logoutBtn').classList.toggle('hidden', !currentUser);
+            document.getElementById('loginFromPanelBtn').classList.toggle('hidden', !!currentUser);
+        }
+        function showLogin() { closeAccountPanel(); document.getElementById('authOverlay').classList.remove('hidden'); }
+        function continueOffline() { offlineMode = true; document.getElementById('authOverlay').classList.add('hidden'); setSyncState('Cục bộ', false); }
+
+        async function sendMagicLink() {
+            if(!supabaseClient) return showConfigError();
+            const email = document.getElementById('authEmail').value.trim();
+            const msg = document.getElementById('authMessage');
+            if(!email) { msg.innerText = 'Hãy nhập email.'; return; }
+            msg.innerText = 'Đang gửi…';
+            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+            msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
+        }
+
+        async function signInWithGoogle() {
+            if(!supabaseClient) return showConfigError();
+            const { error } = await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+            if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
+        }
+
+        async function signOutUser() {
+            if(supabaseClient) await supabaseClient.auth.signOut();
+            currentUser = null;
+            offlineMode = true;
+            refreshAccountUI();
+            setSyncState('Cục bộ', false);
+            closeAccountPanel();
+            showLogin();
+        }
+
+        function showConfigError() {
+            document.getElementById('authMessage').innerText = 'Chưa cấu hình Supabase. Hãy điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong config.js.';
+        }
+
+        async function initCloud() {
+            if(!cloudConfigured()) {
+                setSyncState('Chưa cấu hình', false);
+                showLogin();
+                showConfigError();
+                return;
+            }
+            supabaseClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            currentUser = session?.user || null;
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                currentUser = session?.user || null;
+                refreshAccountUI();
+                if(currentUser) {
+                    document.getElementById('authOverlay').classList.add('hidden');
+                    setTimeout(pullCloudData, 0);
+                }
+            });
+            refreshAccountUI();
+            if(currentUser) {
+                document.getElementById('authOverlay').classList.add('hidden');
+                await pullCloudData();
+            } else if(!offlineMode) {
+                showLogin();
+                setSyncState('Chưa đăng nhập', false);
+            }
+        }
+
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+        }
+
+        function formatCurrencyInput(input) {
+            let val = input.value.replace(/\D/g, '');
+            if (val) {
+                input.value = Number(val).toLocaleString('vi-VN');
+            } else {
+                input.value = '';
+            }
+        }
+
+        function parseMoney(str) {
+            if (!str) return 0;
+            return Number(str.toString().replace(/\./g, '').replace(/,/g, '')) || 0;
+        }
+
+        function switchTab(tabId) {
+            ['statement', 'stocks', 'crypto', 'debts', 'analytics'].forEach(id => {
+                document.getElementById('tab-' + id).classList.add('hidden');
+                document.getElementById('nav-' + id).className = "flex-1 py-3 px-2 text-center border-b-2 border-transparent text-gray-500 whitespace-nowrap text-xs";
+            });
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            document.getElementById('nav-' + tabId).className = "flex-1 py-3 px-2 text-center border-b-2 border-emerald-600 text-emerald-700 font-bold whitespace-nowrap text-xs";
+            if(tabId === 'analytics') renderAnalyticsCharts();
+            if(tabId === 'statement') renderStatementPieChart();
+        }
+
+        function initApp() {
+            const now = new Date();
+            const offset = now.getTimezoneOffset() * 60000;
+            const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+            document.getElementById('txDate').value = localISOTime;
+            document.getElementById('trfDate').value = localISOTime;
+            
+            const todayStr = new Date().toISOString().slice(0, 10);
+            document.getElementById('stockBuyDate').value = todayStr;
+            document.getElementById('stockUpdateDate').value = todayStr;
+            document.getElementById('cryptoBuyDate').value = todayStr;
+            document.getElementById('cryptoUpdateDate').value = todayStr;
+            document.getElementById('selectedDateInput').value = todayStr;
+            document.getElementById('selectedMonthInput').value = todayStr.slice(0, 7);
+
+            handleTimeFilterChange();
+            updateAllUI();
+        }
+
+        function updateAllUI() {
+            renderAccountDropdowns();
+            renderCategoryDropdowns();
+            renderTransactions();
+            renderStocks();
+            renderCrypto();
+            renderDebts();
+            updateNetWorth();
+            if(!document.getElementById('tab-analytics').classList.contains('hidden')) {
+                renderAnalyticsCharts();
+            }
+            if(!document.getElementById('tab-statement').classList.contains('hidden')) {
+                renderStatementPieChart();
+            }
+        }
+
+        function addNewAccountPrompt() {
+            const accName = prompt("Nhập tên tài khoản mới:");
+            if (accName && accName.trim() !== '') {
+                if (!db.accounts.includes(accName.trim())) {
+                    db.accounts.push(accName.trim());
+                    saveData();
+                    document.getElementById('txAccount').value = accName.trim();
+                } else {
+                    alert("Tài khoản này đã tồn tại!");
+                }
+            }
+        }
+
+        function addNewCategoryPrompt() {
+            const catName = prompt("Nhập tên danh mục mới:");
+            if (catName && catName.trim() !== '') {
+                if (!db.categories[currentTxType].includes(catName.trim())) {
+                    db.categories[currentTxType].push(catName.trim());
+                    saveData();
+                    document.getElementById('txCategory').value = catName.trim();
+                } else {
+                    alert("Danh mục này đã tồn tại!");
+                }
+            }
+        }
+
+        function renderAccountDropdowns() {
+            const filterAcc = document.getElementById('filterAccount');
+            const txAcc = document.getElementById('txAccount');
+            const trfFrom = document.getElementById('trfFromAccount');
+            const trfTo = document.getElementById('trfToAccount');
+
+            let curFilter = filterAcc.value;
+            let curTx = txAcc.value;
+            let curFrom = trfFrom.value;
+            let curTo = trfTo.value;
+
+            filterAcc.innerHTML = '<option value="ALL">Tất cả tài khoản</option>';
+            txAcc.innerHTML = '';
+            trfFrom.innerHTML = '';
+            trfTo.innerHTML = '';
+
+            db.accounts.forEach(acc => {
+                filterAcc.innerHTML += `<option value="${acc}">${acc}</option>`;
+                txAcc.innerHTML += `<option value="${acc}">${acc}</option>`;
+                trfFrom.innerHTML += `<option value="${acc}">${acc}</option>`;
+                trfTo.innerHTML += `<option value="${acc}">${acc}</option>`;
+            });
+
+            if(filterAcc.querySelector(`[value="${curFilter}"]`)) filterAcc.value = curFilter;
+            if(txAcc.querySelector(`[value="${curTx}"]`)) txAcc.value = curTx;
+            if(trfFrom.querySelector(`[value="${curFrom}"]`)) trfFrom.value = curFrom;
+            if(trfTo.querySelector(`[value="${curTo}"]`)) trfTo.value = curTo;
+            if(trfTo.options.length > 1 && trfTo.selectedIndex === 0) trfTo.selectedIndex = 1;
+        }
+
+        function renderCategoryDropdowns() {
+            const txCat = document.getElementById('txCategory');
+            let curCat = txCat.value;
+            txCat.innerHTML = '';
+            db.categories[currentTxType].forEach(cat => {
+                txCat.innerHTML += `<option value="${cat}">${cat}</option>`;
+            });
+            if(curCat) txCat.value = curCat;
+        }
+
+        function setTxType(type) {
+            currentTxType = type;
+            if(type === 'EXPENSE') {
+                document.getElementById('btnTypeExpense').className = "flex-1 py-1.5 rounded-md font-bold bg-white text-rose-600 shadow-sm";
+                document.getElementById('btnTypeIncome').className = "flex-1 py-1.5 rounded-md font-bold text-gray-500";
+            } else {
+                document.getElementById('btnTypeIncome').className = "flex-1 py-1.5 rounded-md font-bold bg-white text-emerald-600 shadow-sm";
+                document.getElementById('btnTypeExpense').className = "flex-1 py-1.5 rounded-md font-bold text-gray-500";
+            }
+            renderCategoryDropdowns();
+        }
+
+        function openTxModal(editId = null) {
+            document.getElementById('txModal').classList.remove('hidden');
+            if(editId) {
+                let t = db.transactions.find(x => x.id === editId);
+                if(t) {
+                    document.getElementById('txModalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> Sửa Giao Dịch`;
+                    document.getElementById('editTxId').value = t.id;
+                    setTxType(t.type);
+                    document.getElementById('txAmount').value = t.amount.toLocaleString('vi-VN');
+                    document.getElementById('txDate').value = t.date;
+                    document.getElementById('txAccount').value = t.account;
+                    document.getElementById('txCategory').value = t.category;
+                    document.getElementById('txNote').value = t.note || '';
+                }
+            } else {
+                document.getElementById('txModalTitle').innerHTML = `<i class="fa-solid fa-pen-to-square mr-1"></i> Thêm Giao Dịch Thu Chi`;
+                document.getElementById('txForm').reset();
+                document.getElementById('editTxId').value = '';
+                const now = new Date();
+                const offset = now.getTimezoneOffset() * 60000;
+                document.getElementById('txDate').value = (new Date(now - offset)).toISOString().slice(0, 16);
+                setTxType('EXPENSE');
+            }
+        }
+        function closeTxModal() { document.getElementById('txModal').classList.add('hidden'); }
+
+        function openTransferModal() { document.getElementById('transferModal').classList.remove('hidden'); }
+        function closeTransferModal() { document.getElementById('transferModal').classList.add('hidden'); document.getElementById('transferForm').reset(); }
+
+        function saveTransfer(e) {
+            e.preventDefault();
+            const amount = parseMoney(document.getElementById('trfAmount').value);
+            const fromAcc = document.getElementById('trfFromAccount').value;
+            const toAcc = document.getElementById('trfToAccount').value;
+            const date = document.getElementById('trfDate').value;
+            const note = document.getElementById('trfNote').value;
+
+            if(!amount || !date) return;
+            if(fromAcc === toAcc) {
+                alert("Tài khoản nguồn và tài khoản nhận phải khác nhau!");
+                return;
+            }
+
+            if(fromAcc === 'TK Chứng khoán') db.stocks.cashBalance -= amount;
+            if(toAcc === 'TK Chứng khoán') db.stocks.cashBalance += amount;
+            if(fromAcc === 'Ví Crypto') db.crypto.cashBalance -= amount;
+            if(toAcc === 'Ví Crypto') db.crypto.cashBalance += amount;
+
+            const transferId = Date.now();
+            db.transactions.push({
+                id: transferId,
+                type: 'EXPENSE',
+                amount: amount,
+                date: date,
+                account: fromAcc,
+                category: 'Chuyển khoản đi',
+                note: `Chuyển đến [${toAcc}]` + (note ? ' - ' + note : '')
+            });
+
+            db.transactions.push({
+                id: transferId + 1,
+                type: 'INCOME',
+                amount: amount,
+                date: date,
+                account: toAcc,
+                category: 'Nhận chuyển khoản',
+                note: `Nhận từ [${fromAcc}]` + (note ? ' - ' + note : '')
+            });
+
+            db.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
+            saveData();
+            closeTransferModal();
+        }
+
+        function saveTransaction(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editTxId').value;
+            const amount = parseMoney(document.getElementById('txAmount').value);
+            const date = document.getElementById('txDate').value;
+            const account = document.getElementById('txAccount').value;
+            const category = document.getElementById('txCategory').value;
+            const note = document.getElementById('txNote').value;
+
+            if(!amount || !date) return;
+
+            if(editId) {
+                let t = db.transactions.find(x => x.id == editId);
+                if(t) {
+                    t.type = currentTxType;
+                    t.amount = amount;
+                    t.date = date;
+                    t.account = account;
+                    t.category = category;
+                    t.note = note;
+                }
+            } else {
+                db.transactions.push({
+                    id: Date.now(),
+                    type: currentTxType,
+                    amount, date, account, category, note
+                });
+            }
+
+            db.transactions.sort((a,b) => new Date(b.date) - new Date(a.date));
+            saveData();
+            closeTxModal();
+        }
+
+        function deleteTx(id, event) {
+            event.stopPropagation();
+            if(confirm("Bạn có chắc muốn xóa giao dịch này?")) {
+                db.transactions = db.transactions.filter(t => t.id !== id);
+                saveData();
+            }
+        }
+
+        function handleTimeFilterChange() {
+            const timeFilter = document.getElementById('statementTimeFilter').value;
+            document.getElementById('filterDateContainer').classList.add('hidden');
+            document.getElementById('filterMonthContainer').classList.add('hidden');
+            document.getElementById('filterYearContainer').classList.add('hidden');
+
+            if(timeFilter === 'SPECIFIC_DATE') document.getElementById('filterDateContainer').classList.remove('hidden');
+            if(timeFilter === 'SPECIFIC_MONTH') document.getElementById('filterMonthContainer').classList.remove('hidden');
+            if(timeFilter === 'CUSTOM_YEAR') document.getElementById('filterYearContainer').classList.remove('hidden');
+
+            renderTransactions();
+        }
+
+        function getFilteredTransactions() {
+            const timeFilter = document.getElementById('statementTimeFilter').value;
+            const filterAcc = document.getElementById('filterAccount').value;
+            const specificDate = document.getElementById('selectedDateInput').value;
+            const specificMonth = document.getElementById('selectedMonthInput').value;
+            const customYear = Number(document.getElementById('selectedYearInput').value) || 2026;
+
+            let filtered = db.transactions;
+            if(filterAcc !== 'ALL') {
+                filtered = filtered.filter(t => t.account === filterAcc);
+            }
+
+            const now = new Date();
+            filtered = filtered.filter(t => {
+                let tDate = new Date(t.date);
+                if(timeFilter === 'WEEK') {
+                    let startOfWeek = new Date(now);
+                    startOfWeek.setDate(now.getDate() - now.getDay());
+                    startOfWeek.setHours(0,0,0,0);
+                    return tDate >= startOfWeek;
+                } else if(timeFilter === 'MONTH') {
+                    return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+                } else if(timeFilter === 'YEAR') {
+                    return tDate.getFullYear() === now.getFullYear();
+                } else if(timeFilter === 'SPECIFIC_DATE') {
+                    return t.date.slice(0, 10) === specificDate;
+                } else if(timeFilter === 'SPECIFIC_MONTH') {
+                    return t.date.slice(0, 7) === specificMonth;
+                } else if(timeFilter === 'CUSTOM_YEAR') {
+                    return tDate.getFullYear() === customYear;
+                }
+                return true;
+            });
+
+            return filtered;
+        }
+
+        function renderTransactions() {
+            const listEl = document.getElementById('transactionList');
+            let filtered = getFilteredTransactions();
+
+            let totalIncome = 0;
+            let totalExpense = 0;
+            filtered.forEach(t => {
+                if(t.type === 'INCOME') totalIncome += t.amount;
+                else totalExpense += t.amount;
+            });
+
+            document.getElementById('filteredIncome').innerText = formatMoney(totalIncome);
+            document.getElementById('filteredExpense').innerText = formatMoney(totalExpense);
+            let net = totalIncome - totalExpense;
+            let netEl = document.getElementById('filteredNet');
+            netEl.innerText = formatMoney(net);
+            netEl.className = net >= 0 ? "font-bold text-emerald-600" : "font-bold text-rose-600";
+
+            renderStatementPieChart();
+
+            if(filtered.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">Chưa có giao dịch nào trong khoảng thời gian này.</div>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(t => {
+                let isInc = t.type === 'INCOME';
+                let dateStr = new Date(t.date).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day: '2-digit', month: '2-digit', year: 'numeric' });
+                html += `
+                    <div onclick="openTxModal(${t.id})" class="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex justify-between items-center text-xs active:bg-gray-50 cursor-pointer">
+                        <div class="space-y-0.5">
+                            <div class="flex items-center gap-1.5">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isInc ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${t.category}</span>
+                                <span class="text-gray-400 font-medium">• ${t.account}</span>
+                            </div>
+                            <p class="font-medium text-gray-800">${t.note || 'Không có ghi chú'}</p>
+                            <span class="text-[10px] text-gray-400">${dateStr}</span>
+                        </div>
+                        <div class="text-right flex items-center gap-3">
+                            <div>
+                                <span class="font-extrabold text-sm ${isInc ? 'text-emerald-600' : 'text-rose-600'}">${isInc ? '+' : '-'}${formatMoney(t.amount)}</span>
+                            </div>
+                            <button onclick="deleteTx(${t.id}, event)" class="text-gray-300 hover:text-rose-500 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        function renderStatementPieChart() {
+            let filtered = getFilteredTransactions();
+            let totalInc = 0;
+            let totalExp = 0;
+            filtered.forEach(t => {
+                if(t.type === 'INCOME') totalInc += t.amount;
+                else totalExp += t.amount;
+            });
+            let remaining = totalInc - totalExp;
+
+            const ctx = document.getElementById('statementPieChart').getContext('2d');
+            if(statementPieChartInstance) statementPieChartInstance.destroy();
+
+            statementPieChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Tổng Thu', 'Tổng Chi', 'Còn lại'],
+                    datasets: [{
+                        data: [totalInc, totalExp, remaining > 0 ? remaining : 0],
+                        backgroundColor: ['#10b981', '#f43f5e', '#3b82f6']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        // Chứng Khoán
+        function openStockModal(action, symbol = null) {
+            currentStockAction = action;
+            document.getElementById('stockModal').classList.remove('hidden');
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if(action === 'DEPOSIT') {
+                document.getElementById('stockModalTitle').innerText = "Nạp / Rút Tiền Tài Khoản Chứng Khoán";
+                document.getElementById('stockFieldSymbol').style.display = 'none';
+                document.getElementById('stockLabelQty').innerText = "Số tiền nạp (+) hoặc rút (-)";
+                document.getElementById('stockLabelPrice').parentElement.style.display = 'none';
+                document.getElementById('stockCurrentMarketPrice').parentElement.style.display = 'none';
+                document.getElementById('stockQty').value = '';
+            } else {
+                document.getElementById('stockModalTitle').innerText = symbol ? "Sửa thông tin Cổ Phiếu" : "Mua / Bán Cổ Phiếu";
+                document.getElementById('stockFieldSymbol').style.display = 'block';
+                document.getElementById('stockLabelQty').innerText = "Khối lượng (Cổ phiếu)";
+                document.getElementById('stockLabelPrice').innerText = "Giá vốn trung bình / Giá mua";
+                document.getElementById('stockLabelPrice').parentElement.style.display = 'block';
+                document.getElementById('stockCurrentMarketPrice').parentElement.style.display = 'block';
+                
+                if(symbol) {
+                    let p = db.stocks.portfolio.find(x => x.symbol === symbol);
+                    if(p) {
+                        document.getElementById('stockSymbol').value = p.symbol;
+                        document.getElementById('stockQty').value = p.qty;
+                        document.getElementById('stockPrice').value = p.avgPrice;
+                        document.getElementById('stockCurrentMarketPrice').value = p.currentPrice;
+                        document.getElementById('stockBuyDate').value = p.buyDate || todayStr;
+                        document.getElementById('stockUpdateDate').value = p.updateDate || todayStr;
+                    }
+                } else {
+                    document.getElementById('stockForm').reset();
+                    document.getElementById('stockBuyDate').value = todayStr;
+                    document.getElementById('stockUpdateDate').value = todayStr;
+                }
+            }
+        }
+        function closeStockModal() { document.getElementById('stockModal').classList.add('hidden'); document.getElementById('stockForm').reset(); }
+
+        function saveStockAction(e) {
+            e.preventDefault();
+            if(currentStockAction === 'DEPOSIT') {
+                let amount = Number(document.getElementById('stockQty').value);
+                db.stocks.cashBalance += amount;
+                db.stocks.history.unshift({
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    amount: amount,
+                    type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAW',
+                    note: amount >= 0 ? 'Nạp tiền vào TK Chứng khoán' : 'Rút tiền từ TK Chứng khoán'
+                });
+            } else {
+                let symbol = document.getElementById('stockSymbol').value.toUpperCase();
+                let qty = Number(document.getElementById('stockQty').value);
+                let price = Number(document.getElementById('stockPrice').value);
+                let curPrice = Number(document.getElementById('stockCurrentMarketPrice').value) || price;
+                let buyDate = document.getElementById('stockBuyDate').value;
+                let updateDate = document.getElementById('stockUpdateDate').value;
+
+                let existing = db.stocks.portfolio.find(p => p.symbol === symbol);
+                if(existing) {
+                    existing.qty = qty;
+                    existing.avgPrice = price;
+                    existing.currentPrice = curPrice;
+                    existing.buyDate = buyDate;
+                    existing.updateDate = updateDate;
+                } else if(qty > 0) {
+                    db.stocks.portfolio.push({ symbol, qty, avgPrice: price, currentPrice: curPrice, buyDate, updateDate });
+                }
+            }
+            saveData();
+            closeStockModal();
+        }
+
+        function deleteStock(symbol, event) {
+            event.stopPropagation();
+            if(confirm(`Xóa mã cổ phiếu ${symbol} khỏi danh mục?`)) {
+                db.stocks.portfolio = db.stocks.portfolio.filter(p => p.symbol !== symbol);
+                saveData();
+            }
+        }
+
+        function renderStocks() {
+            let marketValue = 0;
+            let totalCost = 0;
+            db.stocks.portfolio.forEach(p => {
+                totalCost += (p.qty * p.avgPrice);
+                marketValue += (p.qty * p.currentPrice);
+            });
+            let pnl = marketValue - totalCost;
+
+            document.getElementById('stockCashBalance').innerText = formatMoney(db.stocks.cashBalance);
+            document.getElementById('stockMarketValue').innerText = formatMoney(marketValue);
+            let pnlEl = document.getElementById('stockProfitLoss');
+            pnlEl.innerText = formatMoney(pnl);
+            pnlEl.className = pnl >= 0 ? "font-bold text-emerald-600" : "font-bold text-rose-600";
+
+            // Render lịch sử nạp rút CK
+            let histEl = document.getElementById('stockHistoryList');
+            if(!db.stocks.history || db.stocks.history.length === 0) {
+                histEl.innerHTML = `<div class="text-gray-400 text-[11px] italic">Chưa có lịch sử nạp/rút tiền.</div>`;
+            } else {
+                let hHtml = '';
+                db.stocks.history.slice(0, 5).forEach(h => {
+                    let isDep = h.type === 'DEPOSIT';
+                    let dStr = new Date(h.date).toLocaleString('vi-VN', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'});
+                    hHtml += `<div class="flex justify-between items-center text-[11px] border-b pb-1">
+                        <span class="text-gray-600">${h.note} (${dStr})</span>
+                        <strong class="${isDep ? 'text-emerald-600' : 'text-rose-600'}">${isDep ? '+' : ''}${formatMoney(h.amount)}</strong>
+                    </div>`;
+                });
+                histEl.innerHTML = hHtml;
+            }
+
+            let listEl = document.getElementById('stockHoldingList');
+            if(db.stocks.portfolio.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-4 text-gray-400 text-xs">Chưa có mã cổ phiếu nào.</div>`;
+                return;
+            }
+
+            let html = '';
+            db.stocks.portfolio.forEach(p => {
+                let val = p.qty * p.currentPrice;
+                let cost = p.qty * p.avgPrice;
+                let itemPnl = val - cost;
+                let itemPnlPct = cost > 0 ? (itemPnl / cost) * 100 : 0;
+                html += `
+                    <div onclick="openStockModal('TRADE', '${p.symbol}')" class="bg-white p-2.5 rounded-lg border shadow-sm flex justify-between items-center text-xs cursor-pointer active:bg-gray-50">
+                        <div>
+                            <span class="font-extrabold text-blue-700 text-sm">${p.symbol}</span> - SL: <strong>${p.qty.toLocaleString()}</strong><br>
+                            <span class="text-gray-500">Giá vốn: ${formatMoney(p.avgPrice)} | Hiện tại: ${formatMoney(p.currentPrice)}</span><br>
+                            <span class="text-[10px] text-gray-400">Mua: ${p.buyDate || 'N/A'} | Cập nhật: ${p.updateDate || 'N/A'}</span>
+                        </div>
+                        <div class="text-right flex items-center gap-2">
+                            <div>
+                                <span class="font-bold text-sm">${formatMoney(val)}</span><br>
+                                <span class="font-semibold ${itemPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${itemPnl >= 0 ? '+' : ''}${formatMoney(itemPnl)} (${itemPnlPct.toFixed(2)}%)</span>
+                            </div>
+                            <button onclick="deleteStock('${p.symbol}', event)" class="text-gray-300 hover:text-rose-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        // Crypto
+        function openCryptoModal(action, symbol = null) {
+            currentCryptoAction = action;
+            document.getElementById('cryptoModal').classList.remove('hidden');
+            const todayStr = new Date().toISOString().slice(0, 10);
+            if(action === 'DEPOSIT') {
+                document.getElementById('cryptoModalTitle').innerText = "Nạp / Rút Vốn Ví Crypto";
+                document.getElementById('cryptoFieldSymbol').style.display = 'none';
+                document.getElementById('cryptoLabelQty').innerText = "Số tiền nạp (+) hoặc rút (-)";
+                document.getElementById('cryptoLabelPrice').parentElement.style.display = 'none';
+                document.getElementById('cryptoCurrentMarketPrice').parentElement.style.display = 'none';
+                document.getElementById('cryptoQty').value = '';
+            } else {
+                document.getElementById('cryptoModalTitle').innerText = symbol ? "Sửa thông tin Coin" : "Mua / Bán Coin";
+                document.getElementById('cryptoFieldSymbol').style.display = 'block';
+                document.getElementById('cryptoLabelQty').innerText = "Số lượng Coin";
+                document.getElementById('cryptoLabelPrice').innerText = "Giá vốn trung bình (VNĐ)";
+                document.getElementById('cryptoLabelPrice').parentElement.style.display = 'block';
+                document.getElementById('cryptoCurrentMarketPrice').parentElement.style.display = 'block';
+                
+                if(symbol) {
+                    let p = db.crypto.portfolio.find(x => x.symbol === symbol);
+                    if(p) {
+                        document.getElementById('cryptoSymbol').value = p.symbol;
+                        document.getElementById('cryptoQty').value = p.qty;
+                        document.getElementById('cryptoPrice').value = p.avgPrice;
+                        document.getElementById('cryptoCurrentMarketPrice').value = p.currentPrice;
+                        document.getElementById('cryptoBuyDate').value = p.buyDate || todayStr;
+                        document.getElementById('cryptoUpdateDate').value = p.updateDate || todayStr;
+                    }
+                } else {
+                    document.getElementById('cryptoForm').reset();
+                    document.getElementById('cryptoBuyDate').value = todayStr;
+                    document.getElementById('cryptoUpdateDate').value = todayStr;
+                }
+            }
+        }
+        function closeCryptoModal() { document.getElementById('cryptoModal').classList.add('hidden'); document.getElementById('cryptoForm').reset(); }
+
+        function saveCryptoAction(e) {
+            e.preventDefault();
+            if(currentCryptoAction === 'DEPOSIT') {
+                let amount = Number(document.getElementById('cryptoQty').value);
+                db.crypto.cashBalance += amount;
+                db.crypto.history.unshift({
+                    id: Date.now(),
+                    date: new Date().toISOString(),
+                    amount: amount,
+                    type: amount >= 0 ? 'DEPOSIT' : 'WITHDRAW',
+                    note: amount >= 0 ? 'Nạp tiền vào Ví Crypto' : 'Rút tiền từ Ví Crypto'
+                });
+            } else {
+                let symbol = document.getElementById('cryptoSymbol').value.toUpperCase();
+                let qty = Number(document.getElementById('cryptoQty').value);
+                let price = Number(document.getElementById('cryptoPrice').value);
+                let curPrice = Number(document.getElementById('cryptoCurrentMarketPrice').value) || price;
+                let buyDate = document.getElementById('cryptoBuyDate').value;
+                let updateDate = document.getElementById('cryptoUpdateDate').value;
+
+                let existing = db.crypto.portfolio.find(p => p.symbol === symbol);
+                if(existing) {
+                    existing.qty = qty;
+                    existing.avgPrice = price;
+                    existing.currentPrice = curPrice;
+                    existing.buyDate = buyDate;
+                    existing.updateDate = updateDate;
+                } else if(qty > 0) {
+                    db.crypto.portfolio.push({ symbol, qty, avgPrice: price, currentPrice: curPrice, buyDate, updateDate });
+                }
+            }
+            saveData();
+            closeCryptoModal();
+        }
+
+        function deleteCrypto(symbol, event) {
+            event.stopPropagation();
+            if(confirm(`Xóa coin ${symbol} khỏi ví?`)) {
+                db.crypto.portfolio = db.crypto.portfolio.filter(p => p.symbol !== symbol);
+                saveData();
+            }
+        }
+
+        function renderCrypto() {
+            let marketValue = 0;
+            let totalCost = 0;
+            db.crypto.portfolio.forEach(p => {
+                totalCost += (p.qty * p.avgPrice);
+                marketValue += (p.qty * p.currentPrice);
+            });
+            let pnl = marketValue - totalCost;
+
+            document.getElementById('cryptoCashBalance').innerText = formatMoney(db.crypto.cashBalance);
+            document.getElementById('cryptoMarketValue').innerText = formatMoney(marketValue);
+            let pnlEl = document.getElementById('cryptoProfitLoss');
+            pnlEl.innerText = formatMoney(pnl);
+            pnlEl.className = pnl >= 0 ? "font-bold text-emerald-600" : "font-bold text-rose-600";
+
+            let histEl = document.getElementById('cryptoHistoryList');
+            if(!db.crypto.history || db.crypto.history.length === 0) {
+                histEl.innerHTML = `<div class="text-gray-400 text-[11px] italic">Chưa có lịch sử nạp/rút tiền.</div>`;
+            } else {
+                let hHtml = '';
+                db.crypto.history.slice(0, 5).forEach(h => {
+                    let isDep = h.type === 'DEPOSIT';
+                    let dStr = new Date(h.date).toLocaleString('vi-VN', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'});
+                    hHtml += `<div class="flex justify-between items-center text-[11px] border-b pb-1">
+                        <span class="text-gray-600">${h.note} (${dStr})</span>
+                        <strong class="${isDep ? 'text-emerald-600' : 'text-rose-600'}">${isDep ? '+' : ''}${formatMoney(h.amount)}</strong>
+                    </div>`;
+                });
+                histEl.innerHTML = hHtml;
+            }
+
+            let listEl = document.getElementById('cryptoHoldingList');
+            if(db.crypto.portfolio.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-4 text-gray-400 text-xs">Chưa có coin nào trong ví.</div>`;
+                return;
+            }
+
+            let html = '';
+            db.crypto.portfolio.forEach(p => {
+                let val = p.qty * p.currentPrice;
+                let cost = p.qty * p.avgPrice;
+                let itemPnl = val - cost;
+                html += `
+                    <div onclick="openCryptoModal('TRADE', '${p.symbol}')" class="bg-white p-2.5 rounded-lg border shadow-sm flex justify-between items-center text-xs cursor-pointer active:bg-gray-50">
+                        <div>
+                            <span class="font-extrabold text-amber-700 text-sm">${p.symbol}</span> - SL: <strong>${p.qty}</strong><br>
+                            <span class="text-gray-500">Giá vốn: ${formatMoney(p.avgPrice)}</span><br>
+                            <span class="text-[10px] text-gray-400">Mua: ${p.buyDate || 'N/A'} | Cập nhật: ${p.updateDate || 'N/A'}</span>
+                        </div>
+                        <div class="text-right flex items-center gap-2">
+                            <div>
+                                <span class="font-bold text-sm">${formatMoney(val)}</span><br>
+                                <span class="font-semibold ${itemPnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${itemPnl >= 0 ? '+' : ''}${formatMoney(itemPnl)}</span>
+                            </div>
+                            <button onclick="deleteCrypto('${p.symbol}', event)" class="text-gray-300 hover:text-rose-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        // Nợ & Cho Vay
+        function setDebtType(type) {
+            currentDebtType = type;
+            if(type === 'LENDING') {
+                document.getElementById('btnLending').className = "flex-1 py-1 rounded font-bold bg-white text-emerald-600 shadow-sm";
+                document.getElementById('btnBorrowing').className = "flex-1 py-1 rounded font-bold text-gray-500";
+            } else {
+                document.getElementById('btnBorrowing').className = "flex-1 py-1 rounded font-bold bg-white text-rose-600 shadow-sm";
+                document.getElementById('btnLending').className = "flex-1 py-1 rounded font-bold text-gray-500";
+            }
+        }
+
+        function openDebtModal(editId = null) {
+            document.getElementById('debtModal').classList.remove('hidden');
+            if(editId) {
+                let d = db.debts.find(x => x.id === editId);
+                if(d) {
+                    document.getElementById('debtModalTitle').innerText = "Sửa Khoản Nợ / Cho Vay";
+                    document.getElementById('editDebtId').value = d.id;
+                    setDebtType(d.type);
+                    document.getElementById('debtPerson').value = d.person;
+                    document.getElementById('debtAmount').value = d.amount.toLocaleString('vi-VN');
+                    document.getElementById('debtDueDate').value = d.dueDate || '';
+                    document.getElementById('debtNote').value = d.note || '';
+                }
+            } else {
+                document.getElementById('debtModalTitle').innerText = "Thêm Khoản Nợ / Cho Vay";
+                document.getElementById('debtForm').reset();
+                document.getElementById('editDebtId').value = '';
+                setDebtType('LENDING');
+            }
+        }
+        function closeDebtModal() { document.getElementById('debtModal').classList.add('hidden'); }
+
+        function saveDebtItem(e) {
+            e.preventDefault();
+            let editId = document.getElementById('editDebtId').value;
+            let person = document.getElementById('debtPerson').value;
+            let amount = parseMoney(document.getElementById('debtAmount').value);
+            let dueDate = document.getElementById('debtDueDate').value;
+            let note = document.getElementById('debtNote').value;
+
+            if(editId) {
+                let d = db.debts.find(x => x.id == editId);
+                if(d) {
+                    d.type = currentDebtType;
+                    d.person = person;
+                    d.amount = amount;
+                    d.dueDate = dueDate;
+                    d.note = note;
+                }
+            } else {
+                db.debts.push({
+                    id: Date.now(),
+                    type: currentDebtType,
+                    person, amount, dueDate, note, status: 'UNPAID'
+                });
+            }
+            saveData();
+            closeDebtModal();
+        }
+
+        function toggleDebtStatus(id, event) {
+            event.stopPropagation();
+            let item = db.debts.find(d => d.id === id);
+            if(item) {
+                item.status = item.status === 'UNPAID' ? 'PAID' : 'UNPAID';
+                saveData();
+            }
+        }
+
+        function deleteDebt(id, event) {
+            event.stopPropagation();
+            if(confirm("Xóa khoản này?")) {
+                db.debts = db.debts.filter(d => d.id !== id);
+                saveData();
+            }
+        }
+
+        function renderDebts() {
+            let totalBorrow = 0;
+            let totalLend = 0;
+            db.debts.forEach(d => {
+                if(d.status === 'UNPAID') {
+                    if(d.type === 'BORROWING') totalBorrow += d.amount;
+                    else totalLend += d.amount;
+                }
+            });
+
+            document.getElementById('totalDebtAmount').innerText = formatMoney(totalBorrow);
+            document.getElementById('totalLoanAmount').innerText = formatMoney(totalLend);
+
+            let listEl = document.getElementById('debtList');
+            if(db.debts.length === 0) {
+                listEl.innerHTML = `<div class="text-center py-4 text-gray-400 text-xs">Chưa có khoản nợ hoặc cho vay.</div>`;
+                return;
+            }
+
+            let html = '';
+            db.debts.forEach(d => {
+                let isLend = d.type === 'LENDING';
+                let isPaid = d.status === 'PAID';
+                html += `
+                    <div onclick="openDebtModal(${d.id})" class="bg-white p-2.5 rounded-lg border shadow-sm flex justify-between items-center text-xs cursor-pointer active:bg-gray-50 ${isPaid ? 'opacity-60 bg-gray-50' : ''}">
+                        <div>
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${isLend ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${isLend ? 'Cho Vay' : 'Đi Vay'}</span>
+                            <strong class="text-gray-800 ml-1">${d.person}</strong><br>
+                            <span class="text-gray-500">${d.note || ''} ${d.dueDate ? '(Hạn: ' + d.dueDate + ')' : ''}</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-extrabold ${isPaid ? 'line-through text-gray-400' : (isLend ? 'text-emerald-600' : 'text-rose-600')}">${formatMoney(d.amount)}</span><br>
+                            <div class="flex gap-2 mt-1 justify-end">
+                                <button onclick="toggleDebtStatus(${d.id}, event)" class="text-[10px] px-2 py-0.5 rounded ${isPaid ? 'bg-gray-200 text-gray-700' : 'bg-emerald-600 text-white'}">${isPaid ? 'Đã trả' : 'Đánh dấu trả'}</button>
+                                <button onclick="deleteDebt(${d.id}, event)" class="text-gray-300 hover:text-rose-500 p-1"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        function updateNetWorth() {
+            let liquidTotal = 0;
+            db.transactions.forEach(t => {
+                if(t.type === 'INCOME') liquidTotal += t.amount;
+                else liquidTotal -= t.amount;
+            });
+            document.getElementById('summaryLiquid').innerText = formatMoney(liquidTotal);
+
+            let stockVal = db.stocks.cashBalance;
+            db.stocks.portfolio.forEach(p => stockVal += p.qty * p.currentPrice);
+
+            let cryptoVal = db.crypto.cashBalance;
+            db.crypto.portfolio.forEach(p => cryptoVal += p.qty * p.currentPrice);
+
+            let investTotal = stockVal + cryptoVal;
+            document.getElementById('summaryInvest').innerText = formatMoney(investTotal);
+
+            let totalLend = 0;
+            let totalBorrow = 0;
+            db.debts.forEach(d => {
+                if(d.status === 'UNPAID') {
+                    if(d.type === 'LENDING') totalLend += d.amount;
+                    else totalBorrow += d.amount;
+                }
+            });
+
+            document.getElementById('summaryLoan').innerText = formatMoney(totalLend);
+            document.getElementById('summaryDebt').innerText = formatMoney(totalBorrow);
+
+            let netWorth = liquidTotal + investTotal + totalLend - totalBorrow;
+            document.getElementById('totalNetWorth').innerText = formatMoney(netWorth);
+        }
+
+        function renderAnalyticsCharts() {
+            let sortedTx = [...db.transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
+            let runningNet = 0;
+            let dates = [];
+            let netWorthHistory = [];
+
+            sortedTx.forEach(t => {
+                if(t.type === 'INCOME') runningNet += t.amount;
+                else runningNet -= t.amount;
+                let dateLabel = new Date(t.date).toLocaleDateString('vi-VN');
+                dates.push(dateLabel);
+                netWorthHistory.push(runningNet);
+            });
+
+            if(dates.length === 0) {
+                dates = ['Hôm nay'];
+                netWorthHistory = [0];
+            }
+
+            const ctxNW = document.getElementById('netWorthChart').getContext('2d');
+            if(netWorthChartInstance) netWorthChartInstance.destroy();
+            netWorthChartInstance = new Chart(ctxNW, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Tài sản ròng',
+                        data: netWorthHistory,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            let liquidTotal = 0;
+            db.transactions.forEach(t => {
+                if(t.type === 'INCOME') liquidTotal += t.amount;
+                else liquidTotal -= t.amount;
+            });
+            let stockVal = db.stocks.cashBalance;
+            db.stocks.portfolio.forEach(p => stockVal += p.qty * p.currentPrice);
+            let cryptoVal = db.crypto.cashBalance;
+            db.crypto.portfolio.forEach(p => cryptoVal += p.qty * p.currentPrice);
+            let totalLend = 0;
+            db.debts.forEach(d => { if(d.status === 'UNPAID' && d.type === 'LENDING') totalLend += d.amount; });
+
+            const ctxAsset = document.getElementById('assetAllocationChart').getContext('2d');
+            if(assetAllocationChartInstance) assetAllocationChartInstance.destroy();
+            assetAllocationChartInstance = new Chart(ctxAsset, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Tiền mặt / Bank', 'Chứng khoán', 'Tiền số (Crypto)', 'Cho vay'],
+                    datasets: [{
+                        data: [liquidTotal > 0 ? liquidTotal : 0, stockVal, cryptoVal, totalLend],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+
+            let categoryTotals = {};
+            db.transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
+                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+            });
+            let labels = Object.keys(categoryTotals);
+            let data = Object.values(categoryTotals);
+
+            const ctxExp = document.getElementById('expenseChart').getContext('2d');
+            if(expenseChartInstance) expenseChartInstance.destroy();
+            expenseChartInstance = new Chart(ctxExp, {
+                type: 'doughnut',
+                data: {
+                    labels: labels.length > 0 ? labels : ['Chưa có chi tiêu'],
+                    datasets: [{
+                        data: data.length > 0 ? data : [1],
+                        backgroundColor: ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+            });
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", "finance_backup.json");
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    db = JSON.parse(e.target.result);
+                    saveData();
+                    alert("Khôi phục dữ liệu thành công!");
+                } catch(err) {
+                    alert("File dữ liệu không hợp lệ!");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        window.addEventListener('online', () => { if(currentUser) pushCloudData(); });
+        window.addEventListener('offline', () => setSyncState('Ngoại tuyến', false));
+        window.addEventListener('load', async () => {
+            initApp();
+            if ('serviceWorker' in navigator) navigator.serviceWorker.register('/service-worker.js').catch(console.error);
+            await initCloud();
+        });
+    </script>
+</body>
+</html>
