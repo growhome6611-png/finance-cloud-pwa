@@ -1,38 +1,21 @@
-SO THU CHI - BAN DONG BO SUPABASE + VERCEL
+SỔ THU CHI & TÀI CHÍNH - CLOUD PWA v3 (28/10/2026)
 
-1. TAO SUPABASE
-- Vao https://supabase.com -> New project.
-- Mo SQL Editor -> New query.
-- Copy toan bo setup.sql -> Run.
+ĐÃ SỬA / BỔ SUNG
+1. Thanh tài khoản luôn hiển thị rõ "Đăng nhập" hoặc "Đổi TK" ở đầu ứng dụng.
+2. Bảng Tài khoản & Đồng bộ có: tài khoản hiện tại, trạng thái, lần đồng bộ cuối, lấy dữ liệu Cloud, đẩy dữ liệu lên Cloud, đồng bộ ngay, đổi tài khoản Google, đăng xuất.
+3. Đổi tài khoản Google dùng bộ chọn tài khoản, tránh tự quay lại tài khoản cũ.
+4. Dữ liệu cục bộ được tách theo user_id; tài khoản khác không dùng chung dữ liệu local.
+5. Đồng bộ đa thiết bị: tự kiểm tra Cloud mỗi 15 giây và khi quay lại ứng dụng/cửa sổ.
+6. Nếu máy có thay đổi ngoại tuyến chưa gửi và mới hơn Cloud, app ưu tiên đẩy thay đổi đó lên để giảm nguy cơ mất dữ liệu.
+7. Service Worker nâng cache lên v3 và index/config dùng no-store để tránh máy tiếp tục chạy giao diện cũ sau khi deploy.
 
-2. LAY THONG TIN API
-- Project Settings -> API.
-- Copy Project URL va Publishable key (hoac anon key neu dashboard cua ban hien ten cu).
-- Mo config.js va thay:
-  YOUR_SUPABASE_URL
-  YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+CẤU HÌNH SUPABASE
+- config.js đã chứa SUPABASE_URL và Publishable key hiện có.
+- Chạy setup.sql trong Supabase SQL Editor nếu bảng user_finance_data/RLS chưa được tạo.
+- Authentication > Providers > Google phải được bật nếu dùng nút Google.
+- Authentication > URL Configuration cần có URL Vercel chính thức của ứng dụng trong Site URL / Redirect URLs.
 
-3. DANG NHAP EMAIL
-- Supabase -> Authentication -> URL Configuration.
-- Site URL = dia chi Vercel cua ban, vi du https://ten-app.vercel.app
-- Them cung URL vao Redirect URLs.
-- Email magic link co the dung ngay.
-
-4. DANG NHAP GOOGLE (TUY CHON)
-- Supabase -> Authentication -> Providers -> Google.
-- Bat Google provider va nhap Google OAuth Client ID/Secret.
-- Neu chua cau hinh Google, van dung Email Magic Link binh thuong.
-
-5. VERCEL
-- Tai ca thu muc finance_cloud_pwa len GitHub hoac deploy bang Vercel.
-- Khong can Build Command.
-
-6. DONG BO
-- Cung 1 tai khoan email tren Xiaomi/iPhone/may tinh -> cung 1 bo du lieu.
-- App van luu localStorage de dung duoc khi mat mang.
-- Khi co mang va dang nhap, thay doi duoc day len Supabase sau ~0.7 giay.
-- Nut dam may o header cho phep Dong bo ngay / Dang xuat / sao luu JSON.
-
-LUU Y
-- Khong dat service_role key vao config.js.
-- Chi dung Publishable key/anon key va bat RLS bang setup.sql.
+ĐƯA LÊN VERCEL
+- Các file index.html, config.js, service-worker.js, manifest.webmanifest, vercel.json và thư mục icons phải nằm ở thư mục gốc của deployment.
+- Có thể thay toàn bộ file cũ bằng bộ file trong ZIP này trên dự án Vercel hiện tại; không cần tạo project mới.
+- Sau deploy, mở lại URL. Nếu PWA đã cài từ bản rất cũ, đóng app rồi mở lại; bản service worker mới sẽ xóa cache v1 cũ.
