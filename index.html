@@ -21,7 +21,8 @@
       }
     </script>
     <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
-    <!-- Finance PWA V10: session-safe cloud sync -->
+    <meta name="app-version" content="finance-v11-single-session">
+    <!-- Finance PWA V11: single-session Google account switching -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -818,83 +819,8 @@
         }
 
 
-        const SAVED_SESSIONS_KEY = 'finance_saved_sessions_v9';
-
-        function getSavedSessions() {
-            try {
-                const obj = JSON.parse(localStorage.getItem(SAVED_SESSIONS_KEY) || '{}');
-                return obj && typeof obj === 'object' ? obj : {};
-            } catch (_) { return {}; }
-        }
-
-        function saveSessionSnapshot(session) {
-            const email = session?.user?.email?.toLowerCase();
-            if(!email || !session?.access_token || !session?.refresh_token) return;
-            const all = getSavedSessions();
-            all[email] = {
-                access_token: session.access_token,
-                refresh_token: session.refresh_token,
-                user_id: session.user.id,
-                updated_at: Date.now()
-            };
-            localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(all));
-            rememberGoogleAccount(session.user.email);
-        }
-
-        function removeSavedSession(email) {
-            if(!email) return;
-            const all = getSavedSessions();
-            delete all[email.toLowerCase()];
-            localStorage.setItem(SAVED_SESSIONS_KEY, JSON.stringify(all));
-        }
-
-        async function snapshotCurrentSession() {
-            if(!supabaseClient) return;
-            try {
-                const { data } = await supabaseClient.auth.getSession();
-                if(data?.session) saveSessionSnapshot(data.session);
-            } catch (e) { console.warn('snapshot session:', e); }
-        }
-
-        async function activateSavedSession(email) {
-            if(!supabaseClient || !email) return false;
-            const saved = getSavedSessions()[email.toLowerCase()];
-            if(!saved?.access_token || !saved?.refresh_token) return false;
-            setSyncState('Đang chuyển TK…', false);
-            try {
-                const { data, error } = await supabaseClient.auth.setSession({
-                    access_token: saved.access_token,
-                    refresh_token: saved.refresh_token
-                });
-                if(error || !data?.session || data.session.user?.email?.toLowerCase() !== email.toLowerCase()) {
-                    console.warn('Saved session invalid:', error);
-                    removeSavedSession(email);
-                    return false;
-                }
-                saveSessionSnapshot(data.session);
-                const { data: verifyData } = await supabaseClient.auth.getSession();
-                currentUser = verifyData?.session?.user || data.session.user;
-                if(!currentUser || currentUser.email?.toLowerCase() !== email.toLowerCase()) {
-                    removeSavedSession(email);
-                    return false;
-                }
-                const local = localStorage.getItem('finance_db_v5_' + currentUser.id);
-                db = local ? JSON.parse(local) : freshDefaultDb();
-                localStorage.setItem('finance_db_v5', JSON.stringify(db));
-                localStorage.setItem('finance_last_user_id', currentUser.id);
-                localStorage.setItem('finance_last_google_email', currentUser.email || email);
-                updateAllUI();
-                refreshAccountUI();
-                document.getElementById('authOverlay')?.classList.add('hidden');
-                await pullCloudData();
-                setSyncState('Đã đồng bộ');
-                return true;
-            } catch (e) {
-                console.warn('activate saved session:', e);
-                removeSavedSession(email);
-                return false;
-            }
-        }
+        // V11: KHÔNG lưu access_token / refresh_token của nhiều Gmail.
+        // Chỉ ghi nhớ địa chỉ Gmail để hiển thị trong bộ chọn tài khoản.
 
         function renderKnownGoogleAccounts() {
             const box = document.getElementById('knownGoogleAccounts');
@@ -975,20 +901,16 @@
         }
 
         async function startGoogleOAuth(loginHint = '', isSwitch = false) {
-            if(!supabaseClient) return showConfigError();
+            if(!cloudConfigured()) return showConfigError();
             const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
-            const previousEmail = localStorage.getItem('finance_last_google_email') || currentUser?.email || '';
-            if(isSwitch) {
-                sessionStorage.setItem('finance_switch_in_progress', '1');
-                sessionStorage.setItem('finance_switch_previous_email', previousEmail);
-                sessionStorage.setItem('finance_switch_expected_email', loginHint || '__ANY__');
-                sessionStorage.setItem('finance_switch_started_at', String(Date.now()));
-            }
-            const queryParams = { prompt: 'consent select_account' };
+            const queryParams = { prompt: 'select_account consent' };
             if(loginHint) queryParams.login_hint = loginHint;
             const options = { queryParams, skipBrowserRedirect: true };
             if(redirectUrl) options.redirectTo = redirectUrl;
-            const { data, error } = await supabaseClient.auth.signInWithOAuth({ provider: 'google', options });
+
+            // Dùng client mới cho lần OAuth để không mang auth state cũ trong bộ nhớ.
+            const oauthClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
+            const { data, error } = await oauthClient.auth.signInWithOAuth({ provider: 'google', options });
             if(error) {
                 sessionStorage.removeItem('finance_switch_in_progress');
                 document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
@@ -1006,32 +928,45 @@
             openGoogleAccountChooser();
         }
 
+        async function prepareCleanAccountSwitch(expectedEmail = '') {
+            if(currentUser) {
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+            }
+            const previousEmail = currentUser?.email || localStorage.getItem('finance_last_google_email') || '';
+            sessionStorage.setItem('finance_switch_in_progress', '1');
+            sessionStorage.setItem('finance_switch_previous_email', previousEmail);
+            sessionStorage.setItem('finance_switch_expected_email', expectedEmail || '__ANY__');
+            sessionStorage.setItem('finance_switch_started_at', String(Date.now()));
+
+            // Đăng xuất đúng 1 session hiện tại và xóa token Supabase cục bộ.
+            try {
+                if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' });
+            } catch (e) { console.warn('V11 local signout:', e); }
+            clearSupabaseAuthStorage();
+            currentUser = null;
+            refreshAccountUI();
+            setSyncState('Đang đổi tài khoản…', false);
+
+            // Chờ auth state và storage ổn định trước khi mở Google OAuth mới.
+            await new Promise(resolve => setTimeout(resolve, 350));
+        }
+
         async function loginWithKnownGoogleAccount(email) {
             closeGoogleAccountChooser();
-            await snapshotCurrentSession();
-            const currentEmail = currentUser?.email?.toLowerCase() || '';
-            if(currentEmail === email.toLowerCase()) {
-                setSyncState('Đang dùng TK này');
-                return;
-            }
-            if(await activateSavedSession(email)) return;
-            setSyncState('Cần đăng nhập lại…', false);
+            await prepareCleanAccountSwitch(email);
             await startGoogleOAuth(email, true);
         }
 
         async function loginWithAnotherGoogleAccount() {
             closeGoogleAccountChooser();
-            await snapshotCurrentSession();
-            setSyncState('Đang chọn Gmail…', false);
+            await prepareCleanAccountSwitch('');
             await startGoogleOAuth('', true);
         }
 
         async function signOutUser(showLoginAfter = true) {
-            const emailToRemove = currentUser?.email || '';
             if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
             try { if(supabaseClient) await supabaseClient.auth.signOut({ scope: 'local' }); } catch (_) {}
             clearSupabaseAuthStorage();
-            if(emailToRemove) removeSavedSession(emailToRemove);
             currentUser = null;
             offlineMode = true;
             db = freshDefaultDb();
@@ -1087,6 +1022,7 @@
                 setSyncState('Chưa cấu hình', false);
                 return;
             }
+            localStorage.removeItem('finance_saved_sessions_v9');
             supabaseClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
             const { data: { session } } = await supabaseClient.auth.getSession();
             currentUser = session?.user || null;
@@ -1102,7 +1038,6 @@
                 }
                 currentUser = nextUser;
                 if(currentUser?.email) { rememberGoogleAccount(currentUser.email); localStorage.setItem('finance_last_google_email', currentUser.email); }
-                if(session) saveSessionSnapshot(session);
                 refreshAccountUI();
                 if(currentUser) {
                     localStorage.setItem('finance_last_user_id', currentUser.id);
@@ -1113,7 +1048,6 @@
             refreshAccountUI();
             if(currentUser) {
                 if(currentUser.email) { rememberGoogleAccount(currentUser.email); localStorage.setItem('finance_last_google_email', currentUser.email); }
-                if(session) saveSessionSnapshot(session);
                 const saved = localStorage.getItem('finance_db_v5_' + currentUser.id);
                 if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
                 localStorage.setItem('finance_last_user_id', currentUser.id);
