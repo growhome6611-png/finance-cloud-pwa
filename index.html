@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Nạp config.js theo đường dẫn tương đối và dự phòng trực tiếp -->
-    <script src="./config.js"></script>
+    <script src="./config.js?v=20261028-account-v4"></script>
     <script>
       if (!window.APP_CONFIG) {
         window.APP_CONFIG = {
@@ -44,24 +44,27 @@
                 </div>
             </div>
 
-            <!-- Thanh trạng thái Tài khoản & Nút đổi nhanh -->
-            <div class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 flex items-center justify-between text-left border border-emerald-500/40">
-                <div onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 cursor-pointer flex-1">
-                    <i class="fa-solid fa-circle-user text-emerald-300 text-sm"></i>
-                    <span id="topAccountEmail" class="truncate text-xs font-semibold">Chưa đăng nhập</span>
+            <!-- Thanh tài khoản cố định: luôn hiển thị, không biến mất sau đăng nhập -->
+            <div id="topAccountBar" class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 border border-emerald-500/40">
+                <div class="flex items-center justify-between gap-2">
+                    <div onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 cursor-pointer flex-1">
+                        <i class="fa-solid fa-circle-user text-emerald-300 text-sm"></i>
+                        <span id="topAccountEmail" class="truncate text-xs font-semibold">Chưa đăng nhập</span>
+                    </div>
+                    <span id="topAccountState" class="text-[10px] font-bold bg-amber-500 px-2 py-0.5 rounded">Chưa đăng nhập</span>
                 </div>
-                <div class="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                    <button id="topSyncBtn" onclick="syncNow()" class="bg-emerald-600 hover:bg-emerald-500 px-2 py-1 rounded text-[10px] font-bold">
-                        <i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Cục bộ</span>
+                <div class="flex items-center gap-1.5 mt-2">
+                    <button id="topLoginBtn" onclick="signInWithGoogle()" class="flex-1 bg-white text-gray-700 px-2 py-1.5 rounded text-[10px] font-bold shadow">
+                        <i class="fa-brands fa-google text-rose-500 mr-1"></i> Đăng nhập Google
                     </button>
-                    <button id="topLoginBtn" onclick="showLogin()" class="bg-white text-emerald-700 px-2 py-1 rounded text-[10px] font-bold shadow-sm">
-                        <i class="fa-brands fa-google mr-1 text-rose-500"></i> Đăng nhập
+                    <button id="topSyncBtn" onclick="syncNow()" class="hidden bg-emerald-600 hover:bg-emerald-500 px-2 py-1.5 rounded text-[10px] font-bold">
+                        <i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Đồng bộ</span>
                     </button>
-                    <button id="topSwitchBtn" onclick="switchAccount()" class="hidden bg-amber-500 hover:bg-amber-400 text-white px-2 py-1 rounded text-[10px] font-bold" title="Đổi tài khoản Google">
-                        <i class="fa-solid fa-right-left mr-0.5"></i> Đổi TK
+                    <button id="topSwitchBtn" onclick="switchGoogleAccount()" class="hidden bg-amber-500 hover:bg-amber-400 px-2 py-1.5 rounded text-[10px] font-bold">
+                        <i class="fa-solid fa-right-left mr-1"></i> Đổi TK
                     </button>
-                    <button id="topLogoutBtn" onclick="signOutUser(false)" class="hidden bg-rose-600 hover:bg-rose-500 text-white px-2 py-1 rounded text-[10px] font-bold" title="Đăng xuất">
-                        <i class="fa-solid fa-right-from-bracket mr-0.5"></i> Thoát
+                    <button id="topLogoutBtn" onclick="signOutUser(false)" class="hidden bg-rose-600 hover:bg-rose-500 px-2 py-1.5 rounded text-[10px] font-bold">
+                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Thoát
                     </button>
                 </div>
             </div>
@@ -643,22 +646,33 @@
             const email = currentUser?.email || 'Chưa đăng nhập (Đang dùng cục bộ)';
             const accountEmail = document.getElementById('accountEmail');
             if(accountEmail) accountEmail.innerText = email;
+
             const topEmail = document.getElementById('topAccountEmail');
             if(topEmail) topEmail.innerText = currentUser?.email || 'Chưa đăng nhập';
 
-            const logoutBtn = document.getElementById('logoutBtn');
-            const loginFromPanelBtn = document.getElementById('loginFromPanelBtn');
-            const switchAccountBtn = document.getElementById('switchAccountBtn');
-            if(logoutBtn) logoutBtn.classList.toggle('hidden', !loggedIn);
-            if(loginFromPanelBtn) loginFromPanelBtn.classList.toggle('hidden', loggedIn);
-            if(switchAccountBtn) switchAccountBtn.classList.toggle('hidden', !loggedIn);
+            const state = document.getElementById('topAccountState');
+            if(state) {
+                state.innerText = loggedIn ? 'Đã đăng nhập' : 'Chưa đăng nhập';
+                state.className = loggedIn
+                    ? 'text-[10px] font-bold bg-emerald-500 px-2 py-0.5 rounded'
+                    : 'text-[10px] font-bold bg-amber-500 px-2 py-0.5 rounded';
+            }
 
             const topLoginBtn = document.getElementById('topLoginBtn');
+            const topSyncBtn = document.getElementById('topSyncBtn');
             const topSwitchBtn = document.getElementById('topSwitchBtn');
             const topLogoutBtn = document.getElementById('topLogoutBtn');
             if(topLoginBtn) topLoginBtn.classList.toggle('hidden', loggedIn);
+            if(topSyncBtn) topSyncBtn.classList.toggle('hidden', !loggedIn);
             if(topSwitchBtn) topSwitchBtn.classList.toggle('hidden', !loggedIn);
             if(topLogoutBtn) topLogoutBtn.classList.toggle('hidden', !loggedIn);
+
+            const logoutBtn = document.getElementById('logoutBtn');
+            const loginBtn = document.getElementById('loginFromPanelBtn');
+            const switchBtn = document.getElementById('switchAccountBtn');
+            if(logoutBtn) logoutBtn.classList.toggle('hidden', !loggedIn);
+            if(loginBtn) loginBtn.classList.toggle('hidden', loggedIn);
+            if(switchBtn) switchBtn.classList.toggle('hidden', !loggedIn);
         }
 
         function showLogin() {
@@ -743,6 +757,17 @@
                 options: redirectUrl ? { redirectTo: redirectUrl, queryParams: { prompt: 'select_account' } } : { queryParams: { prompt: 'select_account' } }
             });
             if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
+        }
+
+        async function switchGoogleAccount() {
+            if(!supabaseClient) return showConfigError();
+            if(currentUser) {
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+                await supabaseClient.auth.signOut();
+                currentUser = null;
+                refreshAccountUI();
+            }
+            await signInWithGoogle();
         }
 
         async function signOutUser(showLoginAfter = true) {
@@ -1759,7 +1784,7 @@
         window.addEventListener('load', async () => {
             initApp();
             if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-                navigator.serviceWorker.register('./service-worker.js').catch(console.error);
+                navigator.serviceWorker.register('./service-worker.js?v=20261028-account-v4').then(r => r.update()).catch(console.error);
             }
             await initCloud();
         });

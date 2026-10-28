@@ -1,46 +1,49 @@
-const CACHE='finance-cloud-pwa-v3-2026.10.28';
-const CORE=['/','/index.html','/config.js','/manifest.webmanifest','/icons/icon-192.png','/icons/icon-512.png'];
+const CACHE_NAME = 'finance-account-v4-20261028';
+const APP_SHELL = ['./', './index.html', './config.js'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE)));
   self.skipWaiting();
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).catch(() => {}));
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key))))
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
 self.addEventListener('fetch', event => {
-  if(event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-  if(url.hostname.includes('supabase.co')) return;
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
 
-  // HTML/config luôn ưu tiên bản mới từ mạng, chỉ dùng cache khi mất mạng.
-  const isFreshCritical = url.origin === self.location.origin && (
-    url.pathname === '/' || url.pathname === '/index.html' || url.pathname === '/config.js' || url.pathname === '/service-worker.js'
-  );
-
-  if(isFreshCritical) {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
-        .then(response => {
-          if(response && response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
-          return response;
-        })
-        .catch(() => caches.match(event.request).then(r => r || caches.match('/index.html')))
-    );
+  // HTML/navigation and config must prefer the newest network version.
+  if (req.mode === 'navigate' || url.pathname.endsWith('/index.html') || url.pathname.endsWith('/config.js')) {
+    event.respondWith((async () => {
+      try {
+        const fresh = await fetch(req, { cache: 'no-store' });
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(req, fresh.clone());
+        return fresh;
+      } catch (_) {
+        return (await caches.match(req)) || (await caches.match('./index.html'));
+      }
+    })());
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      if(response && response.ok && url.origin === self.location.origin) {
-        caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
-      }
-      return response;
-    }))
-  );
+  event.respondWith((async () => {
+    const cached = await caches.match(req);
+    if (cached) return cached;
+    try {
+      const fresh = await fetch(req);
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(req, fresh.clone());
+      return fresh;
+    } catch (_) {
+      return cached;
+    }
+  })());
 });
