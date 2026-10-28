@@ -44,18 +44,27 @@
                 </div>
             </div>
 
-            <!-- Thanh trạng thái Tài khoản & Nút đổi nhanh -->
-            <div class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 flex items-center justify-between text-left border border-emerald-500/40">
-                <div onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 cursor-pointer flex-1">
-                    <i class="fa-solid fa-circle-user text-emerald-300 text-sm"></i>
-                    <span id="topAccountEmail" class="truncate text-xs font-semibold">Chưa đăng nhập</span>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="syncNow()" class="bg-emerald-600 hover:bg-emerald-500 px-2 py-0.5 rounded text-[10px] font-bold">
-                        <i class="fa-solid fa-cloud mr-1"></i><span id="syncText">Cục bộ</span>
+            <!-- Thanh tài khoản luôn hiển thị -->
+            <div class="w-full mb-2 bg-emerald-800/80 rounded-lg px-3 py-2 border border-emerald-500/40">
+                <div class="flex items-center justify-between gap-2">
+                    <button onclick="openAccountPanel()" class="min-w-0 flex items-center gap-2 flex-1 text-left">
+                        <i class="fa-solid fa-circle-user text-emerald-300 text-base"></i>
+                        <span id="topAccountEmail" class="truncate text-xs font-semibold">Chưa đăng nhập</span>
                     </button>
-                    <button onclick="showLogin()" class="bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded text-[10px] font-bold" title="Đăng nhập / Đổi tài khoản">
-                        <i class="fa-solid fa-right-left mr-0.5"></i> Đổi TK
+                    <span id="syncText" class="bg-emerald-600/80 px-2 py-1 rounded text-[10px] font-bold shrink-0">Cục bộ</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5 mt-2">
+                    <button id="googleQuickBtn" onclick="signInWithGoogle()" class="bg-white text-gray-700 py-1.5 rounded text-[10px] font-bold shadow-sm">
+                        <i class="fa-brands fa-google text-rose-500 mr-1"></i> Đăng nhập Google
+                    </button>
+                    <button id="switchQuickBtn" onclick="switchAccount()" class="bg-amber-500 hover:bg-amber-400 text-white py-1.5 rounded text-[10px] font-bold hidden">
+                        <i class="fa-solid fa-right-left mr-1"></i> Đổi TK
+                    </button>
+                    <button id="syncQuickBtn" onclick="syncNow()" class="bg-sky-600 hover:bg-sky-500 text-white py-1.5 rounded text-[10px] font-bold hidden">
+                        <i class="fa-solid fa-cloud-arrow-down mr-1"></i> Đồng bộ
+                    </button>
+                    <button id="logoutQuickBtn" onclick="signOutUser(false)" class="bg-rose-600 hover:bg-rose-500 text-white py-1.5 rounded text-[10px] font-bold hidden">
+                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất
                     </button>
                 </div>
             </div>
@@ -299,7 +308,7 @@
                     <hr class="my-2">
                     <!-- Hiển thị cố định các nút quản lý tài khoản để dễ thao tác -->
                     <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2.5 rounded-lg font-bold"><i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng nhập tài khoản</button>
-                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 border border-amber-300 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-user-gear mr-1"></i> Đổi sang tài khoản khác</button>
+                    <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 border border-amber-300 py-2.5 rounded-lg font-bold"><i class="fa-solid fa-user-gear mr-1"></i> Đổi tài khoản Google</button>
                     <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-rose-50 text-rose-700 border border-rose-200 py-2 rounded-lg font-bold"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
                     <p class="text-[10px] text-gray-400 text-center pt-1">Dữ liệu luôn được lưu an toàn trên thiết bị và đồng bộ tự động lên Supabase khi bạn đăng nhập.</p>
                 </div>
@@ -558,7 +567,12 @@
         function setSyncState(text, ok=true) {
             const t = document.getElementById('syncText');
             const a = document.getElementById('accountSyncStatus');
-            if(t) t.innerText = text;
+            if(t) {
+                t.innerText = text;
+                t.className = ok
+                    ? 'bg-emerald-600/80 px-2 py-1 rounded text-[10px] font-bold shrink-0'
+                    : 'bg-amber-500/90 px-2 py-1 rounded text-[10px] font-bold shrink-0';
+            }
             if(a) { a.innerText = text; a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'; }
         }
 
@@ -637,8 +651,18 @@
             document.getElementById('accountEmail').innerText = email;
             const topEmail = document.getElementById('topAccountEmail');
             if(topEmail) topEmail.innerText = currentUser?.email || 'Chưa đăng nhập';
+
             document.getElementById('logoutBtn').classList.toggle('hidden', !currentUser);
             document.getElementById('loginFromPanelBtn').classList.toggle('hidden', !!currentUser);
+
+            const googleQuickBtn = document.getElementById('googleQuickBtn');
+            const switchQuickBtn = document.getElementById('switchQuickBtn');
+            const syncQuickBtn = document.getElementById('syncQuickBtn');
+            const logoutQuickBtn = document.getElementById('logoutQuickBtn');
+            if(googleQuickBtn) googleQuickBtn.classList.toggle('hidden', !!currentUser);
+            if(switchQuickBtn) switchQuickBtn.classList.toggle('hidden', !currentUser);
+            if(syncQuickBtn) syncQuickBtn.classList.toggle('hidden', !currentUser);
+            if(logoutQuickBtn) logoutQuickBtn.classList.toggle('hidden', !currentUser);
         }
 
         function showLogin() {
@@ -715,14 +739,20 @@
             msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
         }
 
-        async function signInWithGoogle() {
+        async function signInWithGoogle(forceChooseAccount = false) {
             if(!supabaseClient) return showConfigError();
             const redirectUrl = window.location.origin && window.location.origin !== 'null' ? window.location.origin : undefined;
+            const options = redirectUrl ? { redirectTo: redirectUrl } : {};
+            if(forceChooseAccount) options.queryParams = { prompt: 'select_account' };
             const { error } = await supabaseClient.auth.signInWithOAuth({
                 provider: 'google',
-                options: redirectUrl ? { redirectTo: redirectUrl } : {}
+                options
             });
-            if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
+            if(error) {
+                const msg = document.getElementById('authMessage');
+                if(msg) msg.innerText = 'Lỗi đăng nhập Google: ' + error.message;
+                else alert('Lỗi đăng nhập Google: ' + error.message);
+            }
         }
 
         async function signOutUser(showLoginAfter = true) {
@@ -742,12 +772,15 @@
         }
 
         async function switchAccount() {
-            document.getElementById('authMessage').innerText = '';
+            const msg = document.getElementById('authMessage');
+            if(msg) msg.innerText = '';
             if(currentUser) {
-                await signOutUser(true);
-            } else {
-                showLogin();
+                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+                if(supabaseClient) await supabaseClient.auth.signOut();
+                currentUser = null;
+                refreshAccountUI();
             }
+            await signInWithGoogle(true);
         }
 
         function showConfigError() {
