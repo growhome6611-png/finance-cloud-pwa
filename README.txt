@@ -1,4 +1,4 @@
-SO THU CHI - BAN DONG BO SUPABASE + VERCEL
+SO THU CHI - BAN DONG BO SUPABASE + VERCEL v2
 
 1. TAO SUPABASE
 - Vao https://supabase.com -> New project.
