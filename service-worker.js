@@ -1,3 +1,4 @@
+// V10 cache
 const CACHE_NAME = 'finance-account-v8-20261028';
 const APP_SHELL = ['./', './index.html', './config.js'];
 

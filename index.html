@@ -21,6 +21,7 @@
       }
     </script>
     <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
+    <!-- Finance PWA V10: session-safe cloud sync -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -587,67 +588,104 @@
             if(a) { a.innerText = text; a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'; }
         }
 
+        async function getActiveSessionUser() {
+            if(!supabaseClient) return null;
+            try {
+                const { data, error } = await supabaseClient.auth.getSession();
+                if(error || !data?.session?.user) return null;
+                const liveUser = data.session.user;
+                // Luôn đồng bộ biến giao diện với session thật đang ký request.
+                if(!currentUser || currentUser.id !== liveUser.id) {
+                    currentUser = liveUser;
+                    const saved = localStorage.getItem('finance_db_v5_' + liveUser.id);
+                    db = saved ? JSON.parse(saved) : freshDefaultDb();
+                    localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                    localStorage.setItem('finance_last_user_id', liveUser.id);
+                    if(liveUser.email) {
+                        rememberGoogleAccount(liveUser.email);
+                        localStorage.setItem('finance_last_google_email', liveUser.email);
+                    }
+                    updateAllUI();
+                    refreshAccountUI();
+                }
+                return liveUser;
+            } catch(e) {
+                console.warn('getActiveSessionUser:', e);
+                return null;
+            }
+        }
+
         function scheduleCloudSync() {
-            if(!currentUser || !supabaseClient) return;
+            if(!supabaseClient) return;
             clearTimeout(syncTimer);
             setSyncState('Đang chờ…', false);
             syncTimer = setTimeout(pushCloudData, 700);
         }
 
         async function pushCloudData() {
-            if(!currentUser || !supabaseClient) {
+            const liveUser = await getActiveSessionUser();
+            if(!liveUser) {
+                setSyncState('Chưa đăng nhập', false);
                 alert("Bạn cần đăng nhập tài khoản trước khi đẩy dữ liệu lên Cloud!");
                 showLogin();
-                return;
+                return false;
             }
-            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
+            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return false; }
             setSyncState('Đang đồng bộ…', false);
             const payload = {
-                user_id: currentUser.id,
+                user_id: liveUser.id,
                 data: db,
                 updated_at: new Date().toISOString()
             };
             const { error } = await supabaseClient.from('user_finance_data').upsert(payload, { onConflict: 'user_id' });
             if(error) {
-                console.error(error);
+                console.error('pushCloudData', { error, liveUserId: liveUser.id, email: liveUser.email });
                 setSyncState('Lỗi đồng bộ', false);
-                alert("Lỗi đồng bộ lên Supabase: " + error.message + "\n(Hãy kiểm tra xem bạn đã chạy file setup.sql trong Supabase SQL Editor chưa)");
-                return;
+                alert("Lỗi đồng bộ lên Supabase: " + error.message);
+                return false;
             }
+            localStorage.setItem('finance_db_v5_' + liveUser.id, JSON.stringify(db));
             localStorage.setItem('finance_last_sync', payload.updated_at);
             setSyncState('Đã đồng bộ');
+            return true;
         }
 
         async function pullCloudData() {
-            if(!currentUser || !supabaseClient) {
+            const liveUser = await getActiveSessionUser();
+            if(!liveUser) {
+                setSyncState('Chưa đăng nhập', false);
                 alert("Bạn cần đăng nhập tài khoản trước khi tải dữ liệu từ Cloud!");
                 showLogin();
-                return;
+                return false;
             }
             setSyncState('Đang tải…', false);
-            const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', currentUser.id).maybeSingle();
+            const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', liveUser.id).maybeSingle();
             if(error) {
-                console.error(error);
+                console.error('pullCloudData', { error, liveUserId: liveUser.id, email: liveUser.email });
                 setSyncState('Lỗi tải', false);
                 alert("Lỗi tải dữ liệu từ Supabase: " + error.message);
-                return;
+                return false;
             }
             if(data && data.data) {
                 db = data.data;
                 localStorage.setItem('finance_db_v5', JSON.stringify(db));
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
+                localStorage.setItem('finance_db_v5_' + liveUser.id, JSON.stringify(db));
                 localStorage.setItem('finance_last_sync', data.updated_at || '');
                 updateAllUI();
+                refreshAccountUI();
                 setSyncState('Đã đồng bộ');
             } else {
-                await pushCloudData();
+                // Chỉ tạo dòng mới bằng chính session vừa kiểm tra.
+                return await pushCloudData();
             }
+            return true;
         }
 
         async function syncNow() {
-            if(!currentUser) { showLogin(); return; }
-            await pullCloudData();
-            await pushCloudData();
+            const liveUser = await getActiveSessionUser();
+            if(!liveUser) { showLogin(); return; }
+            const pulled = await pullCloudData();
+            if(pulled !== false) await pushCloudData();
             closeAccountPanel();
         }
 
@@ -834,7 +872,12 @@
                     return false;
                 }
                 saveSessionSnapshot(data.session);
-                currentUser = data.session.user;
+                const { data: verifyData } = await supabaseClient.auth.getSession();
+                currentUser = verifyData?.session?.user || data.session.user;
+                if(!currentUser || currentUser.email?.toLowerCase() !== email.toLowerCase()) {
+                    removeSavedSession(email);
+                    return false;
+                }
                 const local = localStorage.getItem('finance_db_v5_' + currentUser.id);
                 db = local ? JSON.parse(local) : freshDefaultDb();
                 localStorage.setItem('finance_db_v5', JSON.stringify(db));
