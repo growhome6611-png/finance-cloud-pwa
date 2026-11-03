@@ -9,8 +9,6 @@
     <meta name="apple-mobile-web-app-title" content="Sổ Thu Chi">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/config.js"></script>
     <title>Quản Lý Tài Chính & Sổ Thu Chi Cá Nhân</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -216,11 +214,8 @@
                     <h2 class="mt-4 text-xl font-extrabold text-gray-800">Sổ Thu Chi & Tài Chính</h2>
                     <p class="text-xs text-gray-500 mt-1">Đăng nhập để đồng bộ dữ liệu giữa điện thoại và máy tính</p>
                 </div>
-                <button onclick="signInWithGoogle()" class="w-full border border-gray-300 bg-white py-3 rounded-xl text-sm font-bold shadow-sm"><i class="fa-brands fa-google mr-2"></i> Tiếp tục với Google</button>
-                <div class="flex items-center gap-3 my-4 text-[11px] text-gray-400"><div class="h-px bg-gray-200 flex-1"></div>hoặc<div class="h-px bg-gray-200 flex-1"></div></div>
-                <label class="text-xs font-semibold text-gray-600 mb-1">Email</label>
-                <input id="authEmail" type="email" placeholder="tenban@gmail.com" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500">
-                <button onclick="sendMagicLink()" class="w-full mt-3 bg-emerald-600 text-white py-3 rounded-xl text-sm font-bold shadow">Gửi liên kết đăng nhập</button>
+                <button onclick="signInWithGoogle()" class="w-full border border-gray-300 bg-white py-3 rounded-xl text-sm font-bold shadow-sm"><i class="fa-brands fa-google mr-2"></i> Chọn Gmail & Kết nối Google Drive</button>
+                <p class="text-[11px] text-gray-500 text-center mt-3">Ứng dụng chỉ dùng quyền Drive để đọc/ghi file dữ liệu do chính ứng dụng tạo.</p>
                 <p id="authMessage" class="text-xs text-center mt-3 text-gray-500"></p>
                 <button onclick="continueOffline()" class="mt-5 text-xs text-gray-400 underline">Tiếp tục dùng cục bộ / ngoại tuyến</button>
             </div>
@@ -292,22 +287,22 @@
         <div id="accountPanel" class="fixed inset-0 bg-black/50 z-[90] hidden flex items-end sm:items-center justify-center">
             <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-4 text-xs">
                 <div class="flex justify-between items-center border-b pb-2 mb-3">
-                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-cloud mr-1"></i> Tài khoản & Đồng bộ</h3>
+                    <h3 class="font-bold text-sm text-emerald-700"><i class="fa-solid fa-cloud mr-1"></i> Tài khoản & Google Drive</h3>
                     <button onclick="closeAccountPanel()" class="text-gray-400"><i class="fa-solid fa-xmark text-lg"></i></button>
                 </div>
                 <div class="space-y-2">
                     <div class="bg-gray-50 rounded-lg p-3"><span class="text-gray-500">Tài khoản:</span><br><strong id="accountEmail">Chưa đăng nhập</strong></div>
                     <div class="bg-gray-50 rounded-lg p-3 flex justify-between"><span>Trạng thái</span><strong id="accountSyncStatus" class="text-emerald-600">Cục bộ</strong></div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="pullCloudData(); closeAccountPanel()" class="bg-sky-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-down mr-1"></i> Tải từ Cloud</button>
-                        <button onclick="pushCloudData(); closeAccountPanel()" class="bg-emerald-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Đẩy lên Cloud</button>
+                        <button onclick="pullCloudData(); closeAccountPanel()" class="bg-sky-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-down mr-1"></i> Tải từ Drive</button>
+                        <button onclick="pushCloudData(); closeAccountPanel()" class="bg-emerald-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-cloud-arrow-up mr-1"></i> Đẩy lên Drive</button>
                     </div>
-                    <button onclick="syncNow()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ ngay</button>
+                    <button onclick="syncNow()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-rotate mr-1"></i> Đồng bộ thông minh</button>
                     <button onclick="exportData()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold"><i class="fa-solid fa-download mr-1"></i> Sao lưu JSON</button>
                     <button id="loginFromPanelBtn" onclick="showLogin()" class="w-full bg-gray-800 text-white py-2 rounded-lg font-bold">Đăng nhập</button>
                     <button id="switchAccountBtn" onclick="switchAccount()" class="w-full bg-amber-100 text-amber-800 py-2 rounded-lg font-bold hidden"><i class="fa-solid fa-user-gear mr-1"></i> Đăng nhập bằng tài khoản khác</button>
                     <button id="logoutBtn" onclick="signOutUser()" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg font-bold hidden"><i class="fa-solid fa-right-from-bracket mr-1"></i> Đăng xuất</button>
-                    <p class="text-[10px] text-gray-400">Dữ liệu vẫn được lưu cục bộ trên thiết bị. Khi đăng nhập, ứng dụng đồng bộ thêm một bản lên Supabase.</p>
+                    <p class="text-[10px] text-gray-400">Dữ liệu lưu cục bộ và đồng bộ với Google Drive. Mỗi lần ghi lên Drive có kiểm tra phiên bản để ngăn thiết bị cũ ghi đè dữ liệu mới.</p>
                 </div>
             </div>
         </div>
@@ -545,72 +540,281 @@
         let assetAllocationChartInstance = null;
         let expenseChartInstance = null;
 
-        let supabaseClient = null;
         let currentUser = null;
         let syncTimer = null;
         let offlineMode = false;
+        let syncBusy = false;
 
-        function saveData() {
-            localStorage.setItem('finance_db_v5', JSON.stringify(db));
-            if(currentUser) localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            updateAllUI();
-            scheduleCloudSync();
+        function localUserKey() {
+            return currentUser?.email ? ('finance_db_v5_drive_' + currentUser.email.toLowerCase()) : '';
         }
 
-        function cloudConfigured() {
-            return !!(window.APP_CONFIG && APP_CONFIG.SUPABASE_URL && APP_CONFIG.SUPABASE_PUBLISHABLE_KEY && !APP_CONFIG.SUPABASE_URL.includes('YOUR_'));
+        function getDeviceId() {
+            let id = localStorage.getItem('finance_device_id');
+            if(!id) {
+                id = 'device-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+                localStorage.setItem('finance_device_id', id);
+            }
+            return id;
+        }
+
+        function getLocalUpdatedAt() {
+            return localStorage.getItem('finance_local_updated_at') || '';
+        }
+
+        function setLocalUpdatedAt(value) {
+            localStorage.setItem('finance_local_updated_at', value || '');
+        }
+
+        function getKnownCloudVersion() {
+            return Number(localStorage.getItem('finance_cloud_version') || 0);
+        }
+
+        function setKnownCloudVersion(v) {
+            localStorage.setItem('finance_cloud_version', String(Number(v || 0)));
+        }
+
+        function saveLocalSnapshot() {
+            localStorage.setItem('finance_db_v5', JSON.stringify(db));
+            const key = localUserKey();
+            if(key) localStorage.setItem(key, JSON.stringify(db));
+        }
+
+        function saveData() {
+            saveLocalSnapshot();
+            setLocalUpdatedAt(new Date().toISOString());
+            updateAllUI();
+            scheduleCloudSync();
         }
 
         function setSyncState(text, ok=true) {
             const t = document.getElementById('syncText');
             const a = document.getElementById('accountSyncStatus');
             if(t) t.innerText = text;
-            if(a) { a.innerText = text; a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'; }
+            if(a) {
+                a.innerText = text;
+                a.className = ok ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold';
+            }
+        }
+
+        async function apiJson(url, options={}) {
+            const r = await fetch(url, {
+                credentials: 'same-origin',
+                cache: 'no-store',
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(options.headers || {})
+                }
+            });
+            if(r.status === 204) return { response:r, data:null };
+            let data = null;
+            try { data = await r.json(); } catch (_) {}
+            return { response:r, data };
         }
 
         function scheduleCloudSync() {
-            if(!currentUser || !supabaseClient) return;
+            if(!currentUser || offlineMode || !navigator.onLine) return;
             clearTimeout(syncTimer);
-            setSyncState('Đang chờ…', false);
-            syncTimer = setTimeout(pushCloudData, 700);
+            setSyncState('Chờ đồng bộ…', false);
+            // Smart sync, never blind-push.
+            syncTimer = setTimeout(() => smartSync(false), 1200);
         }
 
-        async function pushCloudData() {
-            if(!currentUser || !supabaseClient) return;
-            if(!navigator.onLine) { setSyncState('Ngoại tuyến', false); return; }
-            setSyncState('Đang đồng bộ…', false);
+        async function readDriveData() {
+            const {response, data} = await apiJson('/api/drive-data', { method:'GET' });
+            if(response.status === 401) throw new Error('AUTH');
+            if(!response.ok && response.status !== 204) throw new Error(data?.error || ('HTTP ' + response.status));
+            return data;
+        }
+
+        async function writeDriveData(baseVersion) {
             const payload = {
-                user_id: currentUser.id,
-                data: db,
-                updated_at: new Date().toISOString()
+                base_version: Number(baseVersion || 0),
+                updated_at: getLocalUpdatedAt() || new Date().toISOString(),
+                updated_by: getDeviceId(),
+                data: db
             };
-            const { error } = await supabaseClient.from('user_finance_data').upsert(payload, { onConflict: 'user_id' });
-            if(error) { console.error(error); setSyncState('Lỗi đồng bộ', false); return; }
-            localStorage.setItem('finance_last_sync', payload.updated_at);
-            setSyncState('Đã đồng bộ');
+            const {response, data} = await apiJson('/api/drive-data', {
+                method:'PUT',
+                body: JSON.stringify(payload)
+            });
+            if(response.status === 409) {
+                const err = new Error('CONFLICT');
+                err.cloud = data;
+                throw err;
+            }
+            if(response.status === 401) throw new Error('AUTH');
+            if(!response.ok) throw new Error(data?.error || ('HTTP ' + response.status));
+            if(data?.version !== undefined) setKnownCloudVersion(data.version);
+            if(data?.updated_at) setLocalUpdatedAt(data.updated_at);
+            localStorage.setItem('finance_last_sync', data?.updated_at || new Date().toISOString());
+            return data;
         }
 
-        async function pullCloudData() {
-            if(!currentUser || !supabaseClient) return;
-            setSyncState('Đang tải…', false);
-            const { data, error } = await supabaseClient.from('user_finance_data').select('data,updated_at').eq('user_id', currentUser.id).maybeSingle();
-            if(error) { console.error(error); setSyncState('Lỗi tải', false); return; }
-            if(data && data.data) {
-                db = data.data;
-                localStorage.setItem('finance_db_v5', JSON.stringify(db));
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-                localStorage.setItem('finance_last_sync', data.updated_at || '');
-                updateAllUI();
-                setSyncState('Đã đồng bộ');
-            } else {
-                await pushCloudData();
+        function applyCloudPayload(payload) {
+            if(!payload?.data) return false;
+            db = payload.data;
+            saveLocalSnapshot();
+            setKnownCloudVersion(payload.version || 0);
+            setLocalUpdatedAt(payload.updated_at || '');
+            localStorage.setItem('finance_last_sync', payload.updated_at || '');
+            updateAllUI();
+            return true;
+        }
+
+        function fmtSyncTime(v) {
+            if(!v) return 'chưa có';
+            try { return new Date(v).toLocaleString('vi-VN'); } catch (_) { return v; }
+        }
+
+        async function pullCloudData(force=false) {
+            if(!currentUser) { showLogin(); return; }
+            if(syncBusy) return;
+            syncBusy = true;
+            setSyncState('Đang tải Drive…', false);
+            try {
+                const cloud = await readDriveData();
+                if(!cloud?.data) {
+                    setSyncState('Drive chưa có dữ liệu', false);
+                    if(force && confirm('Google Drive chưa có dữ liệu. Đẩy dữ liệu trên thiết bị này lên Drive?')) {
+                        await writeDriveData(0);
+                        setSyncState('Đã đẩy lên Drive');
+                    }
+                    return;
+                }
+                if(!force) {
+                    const localTs = getLocalUpdatedAt();
+                    if(localTs && cloud.updated_at && new Date(localTs) > new Date(cloud.updated_at)) {
+                        const ok = confirm(
+                            'Dữ liệu trên thiết bị mới hơn Drive.\n\n' +
+                            'Thiết bị: ' + fmtSyncTime(localTs) + '\n' +
+                            'Drive: ' + fmtSyncTime(cloud.updated_at) + '\n\n' +
+                            'Bạn vẫn muốn TẢI TỪ DRIVE và ghi đè dữ liệu trên thiết bị?'
+                        );
+                        if(!ok) { setSyncState('Giữ dữ liệu thiết bị', false); return; }
+                    }
+                }
+                applyCloudPayload(cloud);
+                setSyncState('Đã tải từ Drive');
+            } catch(e) {
+                console.error(e);
+                if(e.message === 'AUTH') { currentUser = null; refreshAccountUI(); showLogin(); }
+                else setSyncState('Lỗi tải Drive', false);
+            } finally {
+                syncBusy = false;
+            }
+        }
+
+        async function pushCloudData(force=false) {
+            if(!currentUser) { showLogin(); return; }
+            if(syncBusy) return;
+            syncBusy = true;
+            setSyncState('Đang đẩy lên Drive…', false);
+            try {
+                const cloud = await readDriveData();
+                const cloudVersion = Number(cloud?.version || 0);
+                const knownVersion = getKnownCloudVersion();
+
+                // Safety gate: a device may only overwrite the cloud version it has previously seen.
+                if(cloud && cloudVersion !== knownVersion && !force) {
+                    setSyncState('Có bản mới trên Drive', false);
+                    alert(
+                        'ĐÃ CHẶN GHI ĐÈ.\n\n' +
+                        'Google Drive đang có phiên bản mới hơn phiên bản mà thiết bị này đã biết.\n' +
+                        'Hãy dùng "Tải từ Drive" hoặc "Đồng bộ thông minh" trước.'
+                    );
+                    return;
+                }
+
+                if(cloud?.updated_at && getLocalUpdatedAt() &&
+                   new Date(cloud.updated_at) > new Date(getLocalUpdatedAt()) && !force) {
+                    setSyncState('Drive mới hơn', false);
+                    alert('ĐÃ CHẶN GHI ĐÈ: dữ liệu Google Drive mới hơn dữ liệu trên thiết bị.');
+                    return;
+                }
+
+                await writeDriveData(cloudVersion);
+                setSyncState('Đã đẩy lên Drive');
+            } catch(e) {
+                console.error(e);
+                if(e.message === 'CONFLICT') {
+                    setSyncState('Xung đột phiên bản', false);
+                    alert('ĐÃ CHẶN GHI ĐÈ: trong lúc đồng bộ, Google Drive đã có một phiên bản mới hơn. Hãy bấm "Đồng bộ thông minh".');
+                } else if(e.message === 'AUTH') {
+                    currentUser = null; refreshAccountUI(); showLogin();
+                } else setSyncState('Lỗi đẩy Drive', false);
+            } finally {
+                syncBusy = false;
+            }
+        }
+
+        async function smartSync(closePanelAfter=true) {
+            if(!currentUser) { showLogin(); return; }
+            if(syncBusy) return;
+            syncBusy = true;
+            setSyncState('Đang so sánh…', false);
+            try {
+                const cloud = await readDriveData();
+                const localTs = getLocalUpdatedAt();
+
+                if(!cloud?.data) {
+                    await writeDriveData(0);
+                    setSyncState('Đã tạo dữ liệu Drive');
+                    return;
+                }
+
+                const cloudTs = cloud.updated_at || '';
+                const cloudVersion = Number(cloud.version || 0);
+                const knownVersion = getKnownCloudVersion();
+
+                // If this device has never seen the current Drive version, prefer cloud.
+                if(cloudVersion !== knownVersion) {
+                    if(localTs && cloudTs && new Date(localTs) > new Date(cloudTs)) {
+                        const chooseLocal = confirm(
+                            'Phát hiện xung đột dữ liệu.\n\n' +
+                            'Thiết bị có thay đổi mới hơn theo thời gian, nhưng chưa từng đọc phiên bản Drive hiện tại.\n' +
+                            'Để tránh mất dữ liệu, mặc định nên TẢI TỪ DRIVE.\n\n' +
+                            'OK = Tải từ Drive\nCancel = Giữ nguyên thiết bị (không ghi lên Drive)'
+                        );
+                        if(chooseLocal) {
+                            applyCloudPayload(cloud);
+                            setSyncState('Đã nhận bản Drive');
+                        } else {
+                            setSyncState('Chưa đồng bộ', false);
+                        }
+                    } else {
+                        applyCloudPayload(cloud);
+                        setSyncState('Đã nhận bản Drive');
+                    }
+                    return;
+                }
+
+                if(!localTs || (cloudTs && new Date(cloudTs) > new Date(localTs))) {
+                    applyCloudPayload(cloud);
+                    setSyncState('Đã nhận bản Drive');
+                } else if(!cloudTs || new Date(localTs) > new Date(cloudTs)) {
+                    await writeDriveData(cloudVersion);
+                    setSyncState('Đã đẩy bản mới lên Drive');
+                } else {
+                    setSyncState('Đã đồng bộ');
+                }
+            } catch(e) {
+                console.error(e);
+                if(e.message === 'CONFLICT') {
+                    setSyncState('Có thay đổi mới trên Drive', false);
+                    alert('Google Drive vừa có thay đổi từ thiết bị khác. Ứng dụng đã chặn ghi đè. Hãy bấm "Đồng bộ thông minh" lại.');
+                } else if(e.message === 'AUTH') {
+                    currentUser = null; refreshAccountUI(); showLogin();
+                } else setSyncState('Lỗi đồng bộ', false);
+            } finally {
+                syncBusy = false;
+                if(closePanelAfter) closeAccountPanel();
             }
         }
 
         async function syncNow() {
-            if(!currentUser) { showLogin(); return; }
-            await pushCloudData();
-            closeAccountPanel();
+            await smartSync(true);
         }
 
         function openAccountPanel() {
@@ -618,6 +822,7 @@
             refreshAccountUI();
         }
         function closeAccountPanel() { document.getElementById('accountPanel').classList.add('hidden'); }
+
         function refreshAccountUI() {
             const email = currentUser?.email || 'Chưa đăng nhập';
             document.getElementById('accountEmail').innerText = email;
@@ -627,35 +832,31 @@
             document.getElementById('switchAccountBtn').classList.toggle('hidden', !currentUser);
             document.getElementById('loginFromPanelBtn').classList.toggle('hidden', !!currentUser);
         }
-        function showLogin() { closeAccountPanel(); document.getElementById('authOverlay').classList.remove('hidden'); }
-        function continueOffline() { offlineMode = true; document.getElementById('authOverlay').classList.add('hidden'); setSyncState('Cục bộ', false); }
 
-        async function sendMagicLink() {
-            if(!supabaseClient) return showConfigError();
-            const email = document.getElementById('authEmail').value.trim();
-            const msg = document.getElementById('authMessage');
-            if(!email) { msg.innerText = 'Hãy nhập email.'; return; }
-            msg.innerText = 'Đang gửi…';
-            const { error } = await supabaseClient.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
-            msg.innerText = error ? ('Lỗi: ' + error.message) : 'Đã gửi liên kết đăng nhập. Hãy kiểm tra email.';
+        function showLogin() {
+            closeAccountPanel();
+            document.getElementById('authOverlay').classList.remove('hidden');
+        }
+
+        function continueOffline() {
+            offlineMode = true;
+            document.getElementById('authOverlay').classList.add('hidden');
+            setSyncState('Cục bộ', false);
         }
 
         async function signInWithGoogle() {
-            if(!supabaseClient) return showConfigError();
-            const { error } = await supabaseClient.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
-            if(error) document.getElementById('authMessage').innerText = 'Lỗi: ' + error.message;
+            window.location.href = '/api/google-login';
         }
 
-        async function signOutUser(showLoginAfter = true) {
-            if(currentUser) {
-                localStorage.setItem('finance_db_v5_' + currentUser.id, JSON.stringify(db));
-            }
-            if(supabaseClient) await supabaseClient.auth.signOut();
+        async function sendMagicLink() {
+            document.getElementById('authMessage').innerText = 'Phiên bản này dùng đăng nhập Google Drive, không dùng Magic Link/Supabase.';
+        }
+
+        async function signOutUser(showLoginAfter=true) {
+            if(currentUser) saveLocalSnapshot();
+            try { await fetch('/api/google-logout', { credentials:'same-origin', cache:'no-store' }); } catch(_) {}
             currentUser = null;
             offlineMode = true;
-            db = freshDefaultDb();
-            localStorage.setItem('finance_db_v5', JSON.stringify(db));
-            updateAllUI();
             refreshAccountUI();
             setSyncState('Chưa đăng nhập', false);
             closeAccountPanel();
@@ -663,50 +864,58 @@
         }
 
         async function switchAccount() {
-            document.getElementById('authMessage').innerText = '';
-            await signOutUser(true);
+            if(currentUser) saveLocalSnapshot();
+            window.location.href = '/api/google-login?switch=1';
         }
 
-        function showConfigError() {
-            document.getElementById('authMessage').innerText = 'Chưa cấu hình Supabase. Hãy điền SUPABASE_URL và SUPABASE_PUBLISHABLE_KEY trong config.js.';
+        function showConfigError(msg='Chưa cấu hình Google OAuth trên Vercel.') {
+            document.getElementById('authMessage').innerText = msg;
         }
 
         async function initCloud() {
-            if(!cloudConfigured()) {
-                setSyncState('Chưa cấu hình', false);
+            const qs = new URLSearchParams(location.search);
+            const authErr = qs.get('drive_auth_error');
+            if(authErr) {
                 showLogin();
-                showConfigError();
+                showConfigError(decodeURIComponent(authErr));
                 return;
             }
-            supabaseClient = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_PUBLISHABLE_KEY);
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            currentUser = session?.user || null;
-            supabaseClient.auth.onAuthStateChange(async (event, session) => {
-                const nextUser = session?.user || null;
-                if(nextUser && nextUser.id !== currentUser?.id) {
-                    const saved = localStorage.getItem('finance_db_v5_' + nextUser.id);
-                    db = saved ? JSON.parse(saved) : freshDefaultDb();
-                    localStorage.setItem('finance_db_v5', JSON.stringify(db));
-                    updateAllUI();
+
+            try {
+                const {response, data} = await apiJson('/api/google-session', { method:'GET' });
+                if(!response.ok || !data?.email) {
+                    currentUser = null;
+                    refreshAccountUI();
+                    if(!offlineMode) showLogin();
+                    setSyncState('Chưa đăng nhập', false);
+                    return;
                 }
-                currentUser = nextUser;
+
+                currentUser = { id:data.email.toLowerCase(), email:data.email };
+                offlineMode = false;
+
+                // Restore this Gmail's local cache first.
+                const key = localUserKey();
+                const saved = key ? localStorage.getItem(key) : null;
+                if(saved) {
+                    try {
+                        db = JSON.parse(saved);
+                        localStorage.setItem('finance_db_v5', JSON.stringify(db));
+                        updateAllUI();
+                    } catch(_) {}
+                }
+
                 refreshAccountUI();
-                if(currentUser) {
-                    localStorage.setItem('finance_last_user_id', currentUser.id);
-                    document.getElementById('authOverlay').classList.add('hidden');
-                    setTimeout(pullCloudData, 0);
-                }
-            });
-            refreshAccountUI();
-            if(currentUser) {
-                const saved = localStorage.getItem('finance_db_v5_' + currentUser.id);
-                if(saved) { db = JSON.parse(saved); localStorage.setItem('finance_db_v5', JSON.stringify(db)); updateAllUI(); }
-                localStorage.setItem('finance_last_user_id', currentUser.id);
                 document.getElementById('authOverlay').classList.add('hidden');
-                await pullCloudData();
-            } else if(!offlineMode) {
-                showLogin();
-                setSyncState('Chưa đăng nhập', false);
+
+                // Critical: opening app never blind-pushes. First compare with Drive.
+                await smartSync(false);
+
+                if(qs.has('drive_auth')) history.replaceState({}, '', location.pathname);
+            } catch(e) {
+                console.error(e);
+                setSyncState('Lỗi kết nối Drive', false);
+                if(!offlineMode) showLogin();
             }
         }
 
@@ -1961,7 +2170,7 @@
             reader.readAsText(file);
         }
 
-        window.addEventListener('online', () => { if(currentUser) pushCloudData(); });
+        window.addEventListener('online', () => { if(currentUser) smartSync(false); });
         window.addEventListener('offline', () => setSyncState('Ngoại tuyến', false));
         window.addEventListener('load', async () => {
             initApp();
