@@ -184,8 +184,78 @@
                 <div id="debtList" class="space-y-2"></div>
             </section>
 
-            <!-- TAB 5: THỐNG KÊ BIỂU ĐỒ -->
+            <!-- TAB 5: THỐNG KÊ BIỂU ĐỒ NÂNG CAO -->
             <section id="tab-analytics" class="space-y-4 hidden">
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 text-xs space-y-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold text-gray-600 mb-1">Kỳ thống kê</label>
+                            <select id="financeAnalyticsPeriod" onchange="handleFinanceAnalyticsFilterChange()" class="w-full bg-white border rounded-lg p-2">
+                                <option value="TODAY">Hôm nay</option>
+                                <option value="WEEK">Tuần này</option>
+                                <option value="MONTH" selected>Tháng này</option>
+                                <option value="YEAR">Năm nay</option>
+                                <option value="ALL">Toàn bộ</option>
+                                <option value="SPECIFIC_MONTH">Chọn tháng</option>
+                                <option value="CUSTOM_YEAR">Chọn năm</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-600 mb-1">Phân tích</label>
+                            <select id="financeAnalyticsMetric" onchange="renderFinanceInteractiveChart()" class="w-full bg-white border rounded-lg p-2">
+                                <option value="EXPENSE">Khoản chi</option>
+                                <option value="INCOME">Khoản thu</option>
+                                <option value="ASSET">Cơ cấu tài sản</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="financeAnalyticsMonthWrap" class="hidden">
+                        <label class="block font-bold text-gray-600 mb-1">Tháng</label>
+                        <input type="month" id="financeAnalyticsMonth" onchange="renderFinanceInteractiveChart()" class="w-full bg-white border rounded-lg p-2">
+                    </div>
+                    <div id="financeAnalyticsYearWrap" class="hidden">
+                        <label class="block font-bold text-gray-600 mb-1">Năm</label>
+                        <input type="number" id="financeAnalyticsYear" value="2026" onchange="renderFinanceInteractiveChart()" class="w-full bg-white border rounded-lg p-2">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block font-bold text-gray-600 mb-1">Kiểu biểu đồ</label>
+                            <select id="financeChartType" onchange="renderFinanceInteractiveChart()" class="w-full bg-white border rounded-lg p-2">
+                                <option value="doughnut">Tròn</option>
+                                <option value="bar">Cột đứng</option>
+                                <option value="horizontalBar">Cột ngang</option>
+                                <option value="doubleDoughnut">Hai lớp</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block font-bold text-gray-600 mb-1">Sắp xếp</label>
+                            <select id="financeChartSort" onchange="renderFinanceInteractiveChart()" class="w-full bg-white border rounded-lg p-2">
+                                <option value="VALUE_DESC">Giá trị giảm dần</option>
+                                <option value="VALUE_ASC">Giá trị tăng dần</option>
+                                <option value="NAME_ASC">Theo tên A-Z</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-3 rounded-xl border shadow-sm">
+                    <div class="flex justify-between items-start gap-2 mb-2">
+                        <div>
+                            <h3 id="financeInteractiveTitle" class="text-xs font-bold text-gray-700">Phân tích khoản chi</h3>
+                            <p id="financeInteractiveSubtitle" class="text-[10px] text-gray-400 mt-0.5">Chạm vào một nhóm để xem biểu đồ con</p>
+                        </div>
+                        <button id="financeDrillBackBtn" onclick="closeFinanceDrilldown()" class="hidden shrink-0 bg-gray-100 text-gray-600 px-2 py-1 rounded text-[10px] font-bold"><i class="fa-solid fa-arrow-left mr-1"></i>Quay lại</button>
+                    </div>
+                    <div class="w-full h-64"><canvas id="financeInteractiveChart"></canvas></div>
+                    <div id="financeChartSummary" class="mt-2 text-[11px] text-gray-500"></div>
+                </div>
+
+                <div id="financeDrilldownCard" class="hidden bg-white p-3 rounded-xl border shadow-sm">
+                    <h3 id="financeDrilldownTitle" class="text-xs font-bold text-gray-700 mb-2">Chi tiết</h3>
+                    <div class="w-full h-56"><canvas id="financeDrilldownChart"></canvas></div>
+                    <div id="financeDrilldownList" class="mt-3 space-y-1.5 max-h-64 overflow-y-auto"></div>
+                </div>
+
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <h3 class="text-xs font-bold text-gray-600 mb-2 text-center">Biến động Tài sản Ròng (Net Worth)</h3>
                     <div class="w-full h-48 flex justify-center"><canvas id="netWorthChart"></canvas></div>
@@ -193,10 +263,6 @@
                 <div class="bg-white p-3 rounded-xl border shadow-sm">
                     <h3 class="text-xs font-bold text-gray-600 mb-2 text-center">Phân bổ Cơ cấu Tài sản Hiện tại</h3>
                     <div class="w-full h-48 flex justify-center"><canvas id="assetAllocationChart"></canvas></div>
-                </div>
-                <div class="bg-white p-3 rounded-xl border shadow-sm">
-                    <h3 class="text-xs font-bold text-gray-600 mb-2 text-center">Tỷ trọng Khoản Chi Tiêu</h3>
-                    <div class="w-full h-48 flex justify-center"><canvas id="expenseChart"></canvas></div>
                 </div>
             </section>
         </main>
@@ -539,6 +605,9 @@
         let netWorthChartInstance = null;
         let assetAllocationChartInstance = null;
         let expenseChartInstance = null;
+        let financeInteractiveChartInstance = null;
+        let financeDrilldownChartInstance = null;
+        let financeCurrentDrill = null;
 
         let currentUser = null;
         let syncTimer = null;
@@ -1268,6 +1337,8 @@
             document.getElementById('cryptoUpdateDate').value = todayStr;
             document.getElementById('selectedDateInput').value = todayStr;
             document.getElementById('selectedMonthInput').value = todayStr.slice(0, 7);
+            if(document.getElementById('financeAnalyticsMonth')) document.getElementById('financeAnalyticsMonth').value = todayStr.slice(0, 7);
+            if(document.getElementById('financeAnalyticsYear')) document.getElementById('financeAnalyticsYear').value = todayStr.slice(0, 4);
 
             handleTimeFilterChange();
             updateAllUI();
@@ -2059,89 +2130,233 @@
             document.getElementById('totalNetWorth').innerText = formatMoney(netWorth);
         }
 
+        function handleFinanceAnalyticsFilterChange() {
+            const p = document.getElementById('financeAnalyticsPeriod')?.value || 'MONTH';
+            document.getElementById('financeAnalyticsMonthWrap')?.classList.toggle('hidden', p !== 'SPECIFIC_MONTH');
+            document.getElementById('financeAnalyticsYearWrap')?.classList.toggle('hidden', p !== 'CUSTOM_YEAR');
+            financeCurrentDrill = null;
+            closeFinanceDrilldown(false);
+            renderFinanceInteractiveChart();
+        }
+
+        function getFinanceAnalyticsTransactions() {
+            const period = document.getElementById('financeAnalyticsPeriod')?.value || 'MONTH';
+            const selectedMonth = document.getElementById('financeAnalyticsMonth')?.value || '';
+            const selectedYear = Number(document.getElementById('financeAnalyticsYear')?.value || new Date().getFullYear());
+            const now = new Date();
+            return db.transactions.filter(t => {
+                const d = new Date(t.date);
+                if(period === 'TODAY') return t.date.slice(0,10) === (new Date(now - now.getTimezoneOffset()*60000)).toISOString().slice(0,10);
+                if(period === 'WEEK') {
+                    const start = new Date(now); start.setDate(now.getDate() - ((now.getDay()+6)%7)); start.setHours(0,0,0,0);
+                    const finish = new Date(start); finish.setDate(start.getDate()+7);
+                    return d >= start && d < finish;
+                }
+                if(period === 'MONTH') return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+                if(period === 'YEAR') return d.getFullYear()===now.getFullYear();
+                if(period === 'SPECIFIC_MONTH') return t.date.slice(0,7) === selectedMonth;
+                if(period === 'CUSTOM_YEAR') return d.getFullYear()===selectedYear;
+                return true;
+            });
+        }
+
+        function financePalette(n) {
+            const c=['#10b981','#3b82f6','#f43f5e','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#84cc16','#6366f1','#14b8a6','#f97316','#64748b'];
+            return Array.from({length:n},(_,i)=>c[i%c.length]);
+        }
+
+        function sortFinancePairs(pairs) {
+            const sort = document.getElementById('financeChartSort')?.value || 'VALUE_DESC';
+            if(sort==='NAME_ASC') return pairs.sort((a,b)=>a.label.localeCompare(b.label,'vi'));
+            if(sort==='VALUE_ASC') return pairs.sort((a,b)=>a.value-b.value);
+            return pairs.sort((a,b)=>b.value-a.value);
+        }
+
+        function compactMoney(v) {
+            if(Math.abs(v)>=1e9) return (v/1e9).toFixed(v%1e9?1:0)+' tỷ';
+            if(Math.abs(v)>=1e6) return (v/1e6).toFixed(v%1e6?1:0)+' tr';
+            if(Math.abs(v)>=1e3) return (v/1e3).toFixed(v%1e3?0:0)+'k';
+            return String(Math.round(v));
+        }
+
+        function getAssetAnalysisRows() {
+            let liquidTotal=0;
+            db.transactions.forEach(t=>{ liquidTotal += t.type==='INCOME' ? t.amount : -t.amount; });
+            let stockVal=db.stocks.cashBalance;
+            db.stocks.portfolio.forEach(p=>stockVal+=p.qty*p.currentPrice);
+            let cryptoVal=db.crypto.cashBalance;
+            db.crypto.portfolio.forEach(p=>cryptoVal+=p.qty*p.currentPrice);
+            let lend=0;
+            db.debts.forEach(d=>{if(d.status==='UNPAID'&&d.type==='LENDING') lend+=d.amount;});
+            return [
+                {label:'Tiền mặt / Bank',value:Math.max(0,liquidTotal)},
+                {label:'Chứng khoán',value:Math.max(0,stockVal)},
+                {label:'Crypto',value:Math.max(0,cryptoVal)},
+                {label:'Cho vay',value:Math.max(0,lend)}
+            ].filter(x=>x.value>0);
+        }
+
+        function buildTwoLayerData(tx, type) {
+            const mainMap={};
+            const childMap={};
+            tx.filter(t=>t.type===type).forEach(t=>{
+                const cat=t.category||'Khác';
+                const acc=t.account||'Không rõ TK';
+                mainMap[cat]=(mainMap[cat]||0)+t.amount;
+                const key=cat+' • '+acc;
+                childMap[key]=(childMap[key]||0)+t.amount;
+            });
+            const main=sortFinancePairs(Object.entries(mainMap).map(([label,value])=>({label,value})));
+            const mainOrder=new Map(main.map((x,i)=>[x.label,i]));
+            const child=Object.entries(childMap).map(([label,value])=>({label,value,parent:label.split(' • ')[0]}))
+                .sort((a,b)=>(mainOrder.get(a.parent)-mainOrder.get(b.parent)) || b.value-a.value);
+            return {main,child};
+        }
+
+        function renderFinanceInteractiveChart() {
+            const canvas=document.getElementById('financeInteractiveChart');
+            if(!canvas) return;
+            const metric=document.getElementById('financeAnalyticsMetric')?.value || 'EXPENSE';
+            const chartType=document.getElementById('financeChartType')?.value || 'doughnut';
+            const tx=getFinanceAnalyticsTransactions();
+            const title=document.getElementById('financeInteractiveTitle');
+            const subtitle=document.getElementById('financeInteractiveSubtitle');
+            let pairs=[];
+
+            if(metric==='ASSET') {
+                pairs=sortFinancePairs(getAssetAnalysisRows());
+                title.innerText='Cơ cấu tài sản';
+                subtitle.innerText='Chạm vào nhóm để xem thành phần chi tiết';
+            } else {
+                const target=metric==='INCOME'?'INCOME':'EXPENSE';
+                const map={};
+                tx.filter(t=>t.type===target).forEach(t=>{ const k=t.category||'Khác'; map[k]=(map[k]||0)+t.amount; });
+                pairs=sortFinancePairs(Object.entries(map).map(([label,value])=>({label,value})));
+                title.innerText=metric==='INCOME'?'Phân tích khoản thu':'Phân tích khoản chi';
+                subtitle.innerText='Chạm vào một nhóm để xem biểu đồ con';
+            }
+
+            if(financeInteractiveChartInstance) financeInteractiveChartInstance.destroy();
+            const ctx=canvas.getContext('2d');
+            const labels=pairs.length?pairs.map(x=>x.label):['Chưa có dữ liệu'];
+            const values=pairs.length?pairs.map(x=>x.value):[1];
+            const colors=financePalette(values.length);
+            const commonPlugins={
+                legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},
+                tooltip:{callbacks:{label:(c)=>`${c.label || c.dataset.label || ''}: ${formatMoney(Number(c.raw)||0)}`}}
+            };
+
+            if(chartType==='doubleDoughnut' && metric!=='ASSET') {
+                const target=metric==='INCOME'?'INCOME':'EXPENSE';
+                const two=buildTwoLayerData(tx,target);
+                const inner=two.main.length?two.main:[{label:'Chưa có dữ liệu',value:1}];
+                const outer=two.child.length?two.child:[{label:'Chưa có dữ liệu',value:1}];
+                financeInteractiveChartInstance=new Chart(ctx,{
+                    type:'doughnut',
+                    data:{
+                        labels:outer.map(x=>x.label),
+                        datasets:[
+                            {label:'Danh mục',data:inner.map(x=>x.value),backgroundColor:financePalette(inner.length),weight:1.15},
+                            {label:'Danh mục • Tài khoản',data:outer.map(x=>x.value),backgroundColor:financePalette(outer.length),weight:0.85}
+                        ]
+                    },
+                    options:{responsive:true,maintainAspectRatio:false,cutout:'35%',plugins:commonPlugins,
+                        onClick:(evt,elements)=>{
+                            if(!elements?.length || elements[0].datasetIndex!==0 || !two.main.length) return;
+                            const cat=two.main[elements[0].index]?.label; if(cat) openFinanceDrilldown(cat,metric);
+                        }
+                    }
+                });
+            } else {
+                const actualType=chartType==='horizontalBar'||chartType==='bar'?'bar':'doughnut';
+                financeInteractiveChartInstance=new Chart(ctx,{
+                    type:actualType,
+                    data:{labels,datasets:[{label:metric==='INCOME'?'Khoản thu':metric==='ASSET'?'Tài sản':'Khoản chi',data:values,backgroundColor:colors,borderWidth:actualType==='doughnut'?1:0}]},
+                    options:{responsive:true,maintainAspectRatio:false,indexAxis:chartType==='horizontalBar'?'y':'x',plugins:commonPlugins,
+                        scales:actualType==='bar'?{x:{ticks:{callback:(v)=>compactMoney(Number(v))}},y:{ticks:{font:{size:10}}}}:undefined,
+                        onClick:(evt,elements)=>{if(!elements?.length||!pairs.length)return; const label=pairs[elements[0].index]?.label; if(label) openFinanceDrilldown(label,metric);}
+                    }
+                });
+            }
+
+            const total=pairs.reduce((a,b)=>a+b.value,0);
+            document.getElementById('financeChartSummary').innerHTML = pairs.length
+                ? `<div class="flex justify-between"><span>Tổng: <b>${formatMoney(total)}</b></span><span>${pairs.length} nhóm</span></div>`
+                : '<span>Chưa có dữ liệu trong kỳ đã chọn.</span>';
+        }
+
+        function openFinanceDrilldown(label, metric) {
+            financeCurrentDrill={label,metric};
+            const card=document.getElementById('financeDrilldownCard');
+            const back=document.getElementById('financeDrillBackBtn');
+            card.classList.remove('hidden'); back.classList.remove('hidden');
+            const title=document.getElementById('financeDrilldownTitle');
+            const list=document.getElementById('financeDrilldownList');
+            let child=[];
+            let listHtml='';
+
+            if(metric==='ASSET') {
+                if(label==='Chứng khoán') {
+                    child=db.stocks.portfolio.map(p=>({label:p.symbol,value:p.qty*p.currentPrice}));
+                } else if(label==='Crypto') {
+                    child=db.crypto.portfolio.map(p=>({label:p.symbol,value:p.qty*p.currentPrice}));
+                } else if(label==='Cho vay') {
+                    child=db.debts.filter(d=>d.status==='UNPAID'&&d.type==='LENDING').map(d=>({label:d.person,value:d.amount}));
+                } else {
+                    const map={}; db.transactions.forEach(t=>{map[t.account]=(map[t.account]||0)+(t.type==='INCOME'?t.amount:-t.amount);});
+                    child=Object.entries(map).filter(([,v])=>v>0).map(([label,value])=>({label,value}));
+                }
+                child=sortFinancePairs(child);
+                title.innerText=`Chi tiết tài sản: ${label}`;
+                listHtml=child.map(x=>`<div class="flex justify-between border-b pb-1"><span>${x.label}</span><b>${formatMoney(x.value)}</b></div>`).join('');
+            } else {
+                const target=metric==='INCOME'?'INCOME':'EXPENSE';
+                const rows=getFinanceAnalyticsTransactions().filter(t=>t.type===target && (t.category||'Khác')===label);
+                const accMap={}; rows.forEach(t=>{const k=t.account||'Không rõ TK'; accMap[k]=(accMap[k]||0)+t.amount;});
+                child=sortFinancePairs(Object.entries(accMap).map(([label,value])=>({label,value})));
+                title.innerText=`${metric==='INCOME'?'Khoản thu':'Khoản chi'} • ${label}`;
+                listHtml=rows.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t=>{
+                    const ds=new Date(t.date).toLocaleDateString('vi-VN');
+                    return `<div class="flex justify-between gap-2 border-b pb-1"><div><b>${t.note||t.category}</b><div class="text-[10px] text-gray-400">${ds} • ${t.account}</div></div><b class="whitespace-nowrap">${formatMoney(t.amount)}</b></div>`;
+                }).join('');
+            }
+
+            if(financeDrilldownChartInstance) financeDrilldownChartInstance.destroy();
+            const ctx=document.getElementById('financeDrilldownChart').getContext('2d');
+            const chartRows=child.length?child:[{label:'Chưa có dữ liệu',value:1}];
+            financeDrilldownChartInstance=new Chart(ctx,{type:'bar',data:{labels:chartRows.map(x=>x.label),datasets:[{data:chartRows.map(x=>x.value),backgroundColor:financePalette(chartRows.length)}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:child.length>5?'y':'x',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>formatMoney(Number(c.raw)||0)}}},scales:{x:{ticks:{callback:v=>compactMoney(Number(v))}},y:{ticks:{font:{size:10}}}}}});
+            list.innerHTML=listHtml || '<div class="text-center text-gray-400 py-3">Chưa có chi tiết.</div>';
+            setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'start'}),50);
+        }
+
+        function closeFinanceDrilldown(scroll=true) {
+            financeCurrentDrill=null;
+            document.getElementById('financeDrilldownCard')?.classList.add('hidden');
+            document.getElementById('financeDrillBackBtn')?.classList.add('hidden');
+            if(scroll) document.getElementById('financeInteractiveChart')?.scrollIntoView({behavior:'smooth',block:'center'});
+        }
+
         function renderAnalyticsCharts() {
+            renderFinanceInteractiveChart();
             let sortedTx = [...db.transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
             let runningNet = 0;
             let dates = [];
             let netWorthHistory = [];
-
             sortedTx.forEach(t => {
                 if(t.type === 'INCOME') runningNet += t.amount;
                 else runningNet -= t.amount;
-                let dateLabel = new Date(t.date).toLocaleDateString('vi-VN');
-                dates.push(dateLabel);
+                dates.push(new Date(t.date).toLocaleDateString('vi-VN'));
                 netWorthHistory.push(runningNet);
             });
-
-            if(dates.length === 0) {
-                dates = ['Hôm nay'];
-                netWorthHistory = [0];
-            }
-
-            const ctxNW = document.getElementById('netWorthChart').getContext('2d');
+            if(dates.length === 0) { dates=['Hôm nay']; netWorthHistory=[0]; }
+            const ctxNW=document.getElementById('netWorthChart').getContext('2d');
             if(netWorthChartInstance) netWorthChartInstance.destroy();
-            netWorthChartInstance = new Chart(ctxNW, {
-                type: 'line',
-                data: {
-                    labels: dates,
-                    datasets: [{
-                        label: 'Tài sản ròng',
-                        data: netWorthHistory,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.2
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false }
-            });
+            netWorthChartInstance=new Chart(ctxNW,{type:'line',data:{labels:dates,datasets:[{label:'Tài sản ròng',data:netWorthHistory,borderColor:'#10b981',backgroundColor:'rgba(16,185,129,.1)',fill:true,tension:.2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:c=>formatMoney(Number(c.raw)||0)}}},scales:{y:{ticks:{callback:v=>compactMoney(Number(v))}}}}});
 
-            let liquidTotal = 0;
-            db.transactions.forEach(t => {
-                if(t.type === 'INCOME') liquidTotal += t.amount;
-                else liquidTotal -= t.amount;
-            });
-            let stockVal = db.stocks.cashBalance;
-            db.stocks.portfolio.forEach(p => stockVal += p.qty * p.currentPrice);
-            let cryptoVal = db.crypto.cashBalance;
-            db.crypto.portfolio.forEach(p => cryptoVal += p.qty * p.currentPrice);
-            let totalLend = 0;
-            db.debts.forEach(d => { if(d.status === 'UNPAID' && d.type === 'LENDING') totalLend += d.amount; });
-
-            const ctxAsset = document.getElementById('assetAllocationChart').getContext('2d');
+            const assetRows=getAssetAnalysisRows();
+            const ctxAsset=document.getElementById('assetAllocationChart').getContext('2d');
             if(assetAllocationChartInstance) assetAllocationChartInstance.destroy();
-            assetAllocationChartInstance = new Chart(ctxAsset, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Tiền mặt / Bank', 'Chứng khoán', 'Tiền số (Crypto)', 'Cho vay'],
-                    datasets: [{
-                        data: [liquidTotal > 0 ? liquidTotal : 0, stockVal, cryptoVal, totalLend],
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
-            });
-
-            let categoryTotals = {};
-            db.transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
-                categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
-            });
-            let labels = Object.keys(categoryTotals);
-            let data = Object.values(categoryTotals);
-
-            const ctxExp = document.getElementById('expenseChart').getContext('2d');
-            if(expenseChartInstance) expenseChartInstance.destroy();
-            expenseChartInstance = new Chart(ctxExp, {
-                type: 'doughnut',
-                data: {
-                    labels: labels.length > 0 ? labels : ['Chưa có chi tiêu'],
-                    datasets: [{
-                        data: data.length > 0 ? data : [1],
-                        backgroundColor: ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b']
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
-            });
+            assetAllocationChartInstance=new Chart(ctxAsset,{type:'doughnut',data:{labels:assetRows.length?assetRows.map(x=>x.label):['Chưa có tài sản'],datasets:[{data:assetRows.length?assetRows.map(x=>x.value):[1],backgroundColor:financePalette(assetRows.length||1)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:c=>`${c.label}: ${formatMoney(Number(c.raw)||0)}`}}},onClick:(evt,elements)=>{if(!elements?.length||!assetRows.length)return; openFinanceDrilldown(assetRows[elements[0].index].label,'ASSET');}}});
         }
 
         function exportData() {
